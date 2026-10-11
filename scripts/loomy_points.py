@@ -3,11 +3,13 @@
 """
 loomy_points.py — 讯飞 Loomy (loomy.xunfei.cn) 每日积分
 =========================================================
-接口(前端 bundle 提取, 2026-10-11):
-  GET /api/auth/points-summary      个人积分汇总(每日访问 loomy.xunfei.cn 即活跃, 大概率自动发放)
-  GET /api/team/points/balance      团队积分余额
-  GET /api/team/points/daily-limit  今日额度(判断每日赠送是否到账)
-  GET /api/team/points/records      积分流水
+接口(2026-10-12 页面实测修正 —— 原 /api/... 已 404，正确前缀是 /api/workspace/...):
+  GET /api/workspace/auth/points-summary       个人积分汇总 {permanent, daily}（★有效）
+  GET /api/workspace/team/points/balance       团队积分余额
+  GET /api/workspace/team/points/daily-limit   今日额度
+  GET /api/workspace/team/points/records       积分流水
+  ★团队三接口在个人版(未加入团队)下返回 HTTP 400 {"code":"100001","error":"请先选择一个团队"}，
+    属正常业务态不是失效，脚本已容错。
 鉴权: 纯 Cookie(讯飞统一登录态), 无独立 refresh 接口 → cookie 失效需重抓。
 配置 loomy_config.json: {"cookie": "<完整 Cookie 头>", "cookie_updated": iso}
 
@@ -27,6 +29,7 @@ from datetime import datetime
 BASE = os.path.dirname(os.path.abspath(__file__))
 CFG_PATH = os.path.join(BASE, "loomy_config.json")
 HOST = "https://loomy.xunfei.cn"
+API = "/api/workspace"  # 2026-10-12 实测: 直连 /api/... 返回 404，须带 /workspace 前缀
 
 CTX = ssl.create_default_context()
 CTX.check_hostname = False
@@ -85,7 +88,7 @@ def cmd_init():
         return 2
     cookie = sys.argv[2].strip().strip('"')
     cfg = {"cookie": cookie}
-    st, j = get("/api/auth/points-summary", cookie)
+    st, j = get(API + "/auth/points-summary", cookie)
     if st == 200 and isinstance(j, dict) and (j.get("success") or "data" in j):
         print("[OK] cookie 有效:", fmt_data(j.get("data") or j))
     elif st == 401:
@@ -102,7 +105,7 @@ def _auto_core(quiet_fail=False):
     if not cfg or not cfg.get("cookie"):
         print("[失败] 未配置 cookie —【Loomy失效】需 init(F12 抓 cookie)")
         return 2
-    st, j = get("/api/auth/points-summary", cfg["cookie"])
+    st, j = get(API + "/auth/points-summary", cfg["cookie"])
     if st == 401:
         print("[失败] cookie 失效(401) —【Loomy失效】需重抓 cookie")
         return 3
@@ -111,10 +114,12 @@ def _auto_core(quiet_fail=False):
         return 3
     data = j.get("data") if "data" in j else j
     print("[积分] %s" % fmt_data(data))
-    # 团队额度接口(个人版可能 404/403, 容错)
-    st2, j2 = get("/api/team/points/daily-limit", cfg["cookie"])
+    # 团队额度接口: 个人版未加入团队时返回 400 {"code":"100001","error":"请先选择一个团队"} -> 正常业务态
+    st2, j2 = get(API + "/team/points/daily-limit", cfg["cookie"])
     if st2 == 200 and isinstance(j2, dict) and (j2.get("success") or "data" in j2):
         print("[今日额度] %s" % fmt_data(j2.get("data") if "data" in j2 else j2))
+    elif isinstance(j2, dict) and str(j2.get("error") or "").find("团队") >= 0:
+        print("[今日额度] 个人版未加入团队，跳过（属正常）")
     return 0
 
 

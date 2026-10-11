@@ -1,21 +1,23 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合七个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。
+整合十一个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
 | 南航（中国南方航空小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 签到抽奖机会检测（抽奖消耗半自动） | Python 标准库（H5 重登需 Playwright） |
 | 美团券包 | `scripts/mt_api_coupon.py` | 每日领券 + 营销页红包（可选） | Python + Node（mtgsig 签名沙箱） |
 | 美团福利社 H5 活动页 | `scripts/mt_gundam_coupon.py` | 福利社 tab 的 gundam 活动页（"周末加码必得百元券包"）：跨券墙(百元券包主力) + 限时抢券 + 天降掉券，全自动发现活动 ID | Python + Node |
+| 美团分销会场 | `scripts/mt_union_coupon.py` | 「美团分销小程序」分销会场每日券包（list→grant 链路）+ 分销中心内嵌跨券墙，单日 ¥180+ | Python + Node（H5 签名） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
 | WorkBuddy 积分 | `scripts/wb_score.py` | Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
+| 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -39,6 +41,10 @@ https://media.meituan.com/fulishemini/couponActivity/listActivityCoupon...
 > **营销页红包**（可选）：在美团小程序里进入任意**营销活动页**（如红包雨/活动会场）点一次领券，把那条 `realTimeMarketingSendCoupon` 请求发我，我会额外配上 `recallToken`，之后每日自动多领一份营销页红包。不抓也能用，只是少这一份。
 
 > **福利社 H5 活动页（"一键领百元券包"）**：福利社底部 tab 本身是一个 gundam 动态 H5 页（不是小程序原生页），脚本 `mt_gundam_coupon.py` 已覆盖。**复用同一条抓包的 wm_logintoken 即可，无需额外抓包**。它自动完成：底部 tab 配置 → 活动 gundam_id → 页面配置 → 全部领券组件（**跨券墙** / 限时抢券 / 天降掉券）。活动每周轮换、activityId 变化都能自动跟上。
+
+> **分销会场（"美团分销"小程序的会场券包）**：脚本 `mt_union_coupon.py`。链路 `listActivityCoupon/distributionVenue`（拉当日券列表 + recallToken）→ `grantActivityCoupon/distributionVenue`（H5 签名领取）。**复用同一条福利社抓包的 wm_logintoken 即可，无需额外抓包**（分销接口认账号级 token）。若想顺带领分销中心内嵌的跨券墙，需在 `scripts/mt_union_config.json` 配 `gdId/pageId/activityViewId/instanceId`（从分销中心页抓包取），不配则自动跳过。
+>
+> 关键点：① grant 必须用 **H5 签名**（`yodaReady=h5&csecplatform=4`），小程序签名会被拒 `code:30001`；② `recallToken` 含时间戳、时效极短，每次必须现拉列表，不能复用存盘响应；③ 幂等按 rightCode 记录（grant 返回 code:200 即视为该批已处理，含互斥未发放的券），新批次 rightCode 变化时自动跟进。
 
 ---
 
@@ -108,8 +114,10 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 脚本自带幂等：当天已完成会自动跳过，删除对应 `*_state.json` 可重跑。
 
+> **凭证会自己失效怎么办？** 魔搭 / 小浣熊 / Loomy 这三家的凭证**不是自然过期，而是服务端轮换**——浏览器每次访问站点都会自动拿到新凭证，脚本存的却是静态快照，所以过一阵必然失效（典型表现：401 / 400 params_invalid_error）。已内置 `cookie_sync.py`：从浏览器读取最新 cookie 写回配置，浏览器没开就自动拉起访问三个站点触发续期，用完自动关闭。**每日任务第 0 步自动执行**，你也可以随时手动跑一次。诊断用 `cookie_probe.py`（对比浏览器值与配置值、显示过期属性）。
+
 **每日自动覆盖范围**：
-- 美团：福利社券包领取、营销页红包（配了 recallToken 才有）、福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）
+- 美团：福利社券包领取、营销页红包（配了 recallToken 才有）、福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）、分销会场每日券包（grant 链路，单日 ¥180+）+ 分销中心跨券墙
 - 南航：发现新境签到、营销活动签到领里程（活动 ID 动态探测，过期活动自动跳过）、签到抽奖机会检测与消耗（消耗需新鲜小程序 sessionId，半自动）
 - 魔搭：登录魔粒 +250（会话副作用，访问首页自动入账）+ 点赞刷分 +40（star/unstar 循环 20 次）
 - WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）
@@ -147,6 +155,9 @@ python scripts/mt_api_coupon.py market # 仅营销页红包
 python scripts/mt_api_coupon.py dryrun # 验证签名+请求体（不发网络）
 python scripts/mt_gundam_coupon.py     # 福利社 H5 活动页（限时抢+天降，幂等）
 python scripts/mt_gundam_coupon.py status  # 查 H5 活动页领取记录
+python scripts/mt_union_coupon.py         # 分销会场券包 + 分销中心跨券墙（幂等）
+python scripts/mt_union_coupon.py probe   # 只拉列表看可领券，不领取
+python scripts/mt_union_coupon.py status  # 查领取记录
 
 # 南航：签到（幂等）
 python scripts/csair_signin.py signin

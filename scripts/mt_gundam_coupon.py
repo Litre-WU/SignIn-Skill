@@ -98,7 +98,10 @@ def http(url, data=None, method="GET", cookie=""):
 
 # ---------------------------------------------------------------- 发现链路
 def find_gundam_id(cfg):
-    """getBottomTabConfig → fls tab 的 webviewUrl 里取 gundam_id（pagePath 中 URL 编码）"""
+    """getBottomTabConfig → 底部 tab 的 webviewUrl 里取 gundam_id（pagePath 中 URL 编码）。
+
+    2026-10-12 实测：底部 tab 改版为 home / new / mine 三项，原福利社 fls（gundam H5）入口下线。
+    因此先按 id=fls 精确匹配，未命中则退化为扫描全部 tab 找任意 webview/gundam 入口。"""
     body_cfg = dict(cfg)
     _, dfpid = mt.gen_mtgsig("POST", HOST_TAB, "probe=1")
     body_cfg["_finger_applets"] = dfpid
@@ -110,11 +113,17 @@ def find_gundam_id(cfg):
     if c != 200:
         raise RuntimeError("getBottomTabConfig HTTP %s" % c)
     j = json.loads(t)
-    for tab in (j.get("data") or {}).get("bottomTabs", []):
+    tabs = (j.get("data") or {}).get("bottomTabs", [])
+    for tab in tabs:
         if tab.get("id") == "fls":
             m = re.search(r"gundam_id(?:=|%3D)([A-Za-z0-9]+)", tab.get("pagePath", ""))
             if m:
                 return m.group(1)
+    # 退化：fls 入口下线后，扫描全部 tab 找任意 gundam webview 入口
+    for tab in tabs:
+        m = re.search(r"gundam_id(?:=|%3D)([A-Za-z0-9]+)", tab.get("pagePath", "") or "")
+        if m:
+            return m.group(1)
     return None
 
 
@@ -403,8 +412,10 @@ def run():
     # 1) 发现活动页
     gid = find_gundam_id(cfg)
     if not gid:
-        print("[中断] 底部 tab 未找到福利社(fls)入口，活动可能已下线")
-        return 2
+        print("[提示] 底部 tab 已无福利社(fls) gundam 入口（2026-10-12 起改版为 home/new/mine），")
+        print("       活动页入口已下线 — 属服务端变更，非脚本失效，本平台跳过。")
+        log("gundam entry gone (tab 改版)")
+        return 0
     print("[1/6] 福利社 gundam_id = %s" % gid)
 
     html, gd_id, page_id, cfg_url = fetch_page(gid)

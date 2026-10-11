@@ -1,5 +1,5 @@
 {
-  "refresh_token": "<F12 抓 /auth/v1/refresh 请求体里的 refresh_token>",
+  "refresh_token": "<你的refresh_token>",
   "token": "<你的token>",
   "token_exp": 0,
   "cfg_updated": "<你的cfg_updated>"
