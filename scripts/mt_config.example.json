@@ -1,0 +1,20 @@
+{
+  "_comment": "美团福利社领券配置模板。复制为 scripts/mt_config.json 后填入抓包值。抓包方式见 SKILL.md。字段全部可从 media.meituan.com 福利社请求头/表单获得。",
+  "token": "<请求头 token，与 wm_logintoken 同值>",
+  "wm_logintoken": "<同 token>",
+  "open_id": "<表单 open_id，oXXX 长串>",
+  "unionid": "<表单 unionid，oXXX 长串>",
+  "userid": "<数字用户ID>",
+  "csecuserid": "<同 userid>",
+  "openIdCipher": "<请求头 openIdCipher 长密文>",
+  "expoId": "<请求头 expoId 长密文>",
+  "wm_uuid": "<抓包 cookie wm_uuid，UUID>",
+  "wm_appversion": "1.52.0",
+  "wm_dversion": "4.1.15.13",
+  "wm_dtype": "microsoft",
+  "wm_dplatform": "windows",
+  "wm_ctype": "fulishe_wxapp",
+  "lch": "1256",
+  "distributorChannel": "1256",
+  "_finger_applets": "<grant 请求体里的设备指纹长串 WX__ver...>"
+}

@@ -1,0 +1,10 @@
+{
+  "sessionId": "<你的sessionId>",
+  "unionId": "<你的unionId>",
+  "openId": "<你的openId>",
+  "clientType": "<你的clientType>",
+  "_updated_at": "<你的_updated_at>",
+  "signToken": "<你的signToken>",
+  "h5_account": "<你的h5_account>",
+  "h5_password": "<你的h5_password>"
+}

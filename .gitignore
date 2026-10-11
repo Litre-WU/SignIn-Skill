@@ -1,0 +1,12 @@
+# 凭证与运行时产物（永远不要提交）
+*_config.json
+!*.config.example.json
+*_state.json
+*.log
+*_resp.json
+__pycache__/
+accounts/
+gr_cred.sh
+*_cred*.sh
+atrest.key
+checkin-rt.json
