@@ -1,6 +1,6 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -20,7 +20,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
-| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成；幂等，已签跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
+| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -140,6 +140,27 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 失效判定：`{"code":"3"}` = 请先登录 → 标注【京东登录失效】，去浏览器重新登录 jd.com 即可（下次运行自动读新 cookie）
 - 幂等：`errCode:302 任务已完成`；已签判定 = `assignment.completionFlag` / `signDetail.status==2` / 今日日期在 `signList`
 
+#### 9b) 互动中心「天天抽奖」转盘（2026-10-12 自行逆向，已实测抽中 6 元红包）
+
+京东首页宝箱入口 → `https://interact.jd.com/`（标题「我的京东-互动中心」）。**与京豆是两套 appid，切勿混用**：
+
+| | 京豆签到 | 互动中心 |
+|---|---|---|
+| 请求参数 appid | `asset-h5` | **`pc_interact_center`** |
+| PSign appId（h5st 第3段） | `73c2f` | **`9a92f`** |
+| Referer | bean.jd.com | interact.jd.com |
+
+接口链路（前端包 `storage.360buyimg.com/channel2022/jd-interactive-center/index-legacy-*.js` 还原）：
+- 奖励查询 `GET pc_interact_reward_query` body `{type:0, rk:false}` → `data.{total,used,usable}`（usable=可抽奖次数）
+- 任务列表 `GET pc_interact_assign_query` body `{type:1}` → `data.assignmentInfoList[]`（id/type/extraType/completionFlag/signDetail/productList/...）
+- 抽奖信息 `GET pc_interact_assign_query` body `{type:0}` → `data.lotteryDrawInfo` / `initCompletionInfo`
+- 做任务 `POST pc_interact_assign_execute` body `{eaId, type, itemId, extraType, rk, actionType}` → `data.assignmentRewardInfo.virtualPointReward.quantity`（抽奖机会+N）
+- 抽奖 `POST pc_interact_assign_execute` body `{rk:false, eaId, type:30}` → `data.assignmentRewardInfo.couponRewards[]`（红包/优惠券，quota/usageThreshold/useTimeRange）
+
+自动化的任务范围：`sign`/`followShop`/`productsInfo`/`shoppingActivity`（浏览类 actionType=0，其余=1）；**`order`（需真实下单）跳过**。itemId 复刻前端 `x(task)`：signDetail→productList/activityChannelList/shopList 取 status=1→orderDetail，兜底 "1"。
+
+★★ **WAF 按端点频率限制（实测同一端点连打即 HTTP 403 空响应，且与 thor/eid 会话绑定、可持续 40 分钟以上）**——已内置 4s 节流 + 403 优雅降级（不中断、不重试轰炸，换端点或等次日）。每日任务每次重新提取浏览器 cookie = 新会话 = 天然规避。eaId 缓存 `jd_interact_state.json`，任务列表被限流时用缓存/内置签到任务兜底。
+
 ---
 
 ## 二、我来自动完成
@@ -162,7 +183,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
-- 京东京豆：每日京豆签到（`jd_web_signin.py`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）
+- 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；已纳入总控第【14】步第 2 个子步骤）
 
 ---
 
@@ -180,6 +201,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
 | 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
 | 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |
+| 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
+| 京东互动中心 `code:3` 请先登录 | 浏览器京东登录态失效/被轮换 | 同签到：Thorium 重新登录 jd.com，下次运行自动读新 cookie |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -246,9 +269,11 @@ python scripts/c189_signin.py init "<整行cookie或SSON值>"   # 落盘凭证�
 
 # 京东京豆（Web 端，浏览器 PC 登录态，脚本自动提取 cookie）
 python scripts/jd_web_signin.py cookie                # 手动重提取浏览器京东 cookie → jd_web_config.json
-python scripts/jd_web_signin.py auto                  # 查询→未签到则签到 + JSON 结果（定时任务用这个）
+python scripts/jd_web_signin.py auto                  # 京豆签到：查询→未签到则签到 + JSON 结果（定时任务用这个）
 python scripts/jd_web_signin.py status                # 只读：今日是否已签/连签天数
 python scripts/jd_web_signin.py sign                  # 强制签到（调试用）
+python scripts/jd_web_signin.py interact              # 互动中心：抽奖机会→抽奖→做任务赚机会→再抽（定时任务用这个）
+python scripts/jd_web_signin.py interact_status       # 只读：抽奖机会 + 任务完成情况
 
 # 凭证同步：魔搭/小浣熊/Loomy 三家轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 python scripts/cookie_sync.py                          # 全部三家

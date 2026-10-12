@@ -184,7 +184,7 @@ function mkBrowserGlobals(ua) {
   return win;
 }
 
-async function sign(bodyObj, functionId, ua) {
+async function sign(bodyObj, functionId, ua, reqAppid, signAppid) {
   const src = await loadSigner();
   const win = mkBrowserGlobals(ua);
   const sandbox = {};
@@ -197,8 +197,10 @@ async function sign(bodyObj, functionId, ua) {
   vm.runInContext(src, ctx, { filename: 'js_security_v3.js', timeout: 60000 });
   const Ctor = sandbox.ParamsSign;
   if (typeof Ctor !== 'function') throw new Error('ParamsSign not exported');
+  const APPID = reqAppid || 'asset-h5';
+  const SIGN_APPID = signAppid || '73c2f';
   const PSign = new Ctor({
-    appId: '73c2f',
+    appId: SIGN_APPID,
     debug: false,
     preRequest: false,
     onSign: function (res) {},
@@ -206,7 +208,7 @@ async function sign(bodyObj, functionId, ua) {
     onRequestToken: function () {},
   });
   const u = {
-    appid: 'asset-h5', clientVersion: '1.0.0', client: 'pc',
+    appid: APPID, clientVersion: '1.0.0', client: 'pc',
     t: String(Date.now()),
     body: crypto.createHash('sha256').update(JSON.stringify(bodyObj), 'utf8').digest('hex'),
     functionId: functionId,

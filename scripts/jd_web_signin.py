@@ -321,34 +321,59 @@ def load_cfg():
     return {}
 
 
-def save_cfg(cookies):
+def save_cfg(cookies, manual=False):
     with open(CFG, "w", encoding="utf-8") as f:
-        json.dump({"cookies": cookies, "ts": int(time.time())}, f, ensure_ascii=False)
+        json.dump({"cookies": cookies, "ts": int(time.time()),
+                   "manual": bool(manual)}, f, ensure_ascii=False)
 
 
 def ensure_cookies(verbose=False):
-    """取最新 cookie；取不到则退回已保存配置（标记 stale）。返回 (cookies, stale)。"""
+    """取最新 cookie；取不到则退回已保存配置（标记 stale）。返回 (cookies, stale)。
+
+    优先级（时间戳感知）：
+      1. 手动配置（用户抓包写入，manual=true）比 TEMP 缓存新 → 直接用配置
+         （避免陈旧的 TEMP 缓存把新鲜抓包盖掉——2026-10-12 实测踩坑；
+          每日自动提取的配置不带 manual 标记，不会拦截磁盘直读）
+      2. 磁盘直读 → TEMP 缓存 → CDP 9222
+      3. 全部失败 → 退回已存配置（stale=True）
+    """
+    cfg = load_cfg()
+    cfg_ck = cfg.get("cookies") or {}
+    cfg_ts = cfg.get("ts") or 0
+    tmp = os.path.join(os.environ.get("TEMP", ""), "_jd_ck.db")
+    tmp_ts = int(os.path.getmtime(tmp)) if os.path.isfile(tmp) else 0
+    if cfg_ck.get("thor") and cfg.get("manual") and cfg_ts > tmp_ts:
+        if verbose:
+            print("[cookie] 用手动配置（%s，新于 TEMP 缓存 %s）" % (
+                time.strftime("%m-%d %H:%M", time.localtime(cfg_ts)),
+                time.strftime("%m-%d %H:%M", time.localtime(tmp_ts)) if tmp_ts else "无"))
+        return cfg_ck, False
     try:
         ck = extract_cookies(verbose)
         save_cfg(ck)
         return ck, False
     except Exception as e:
-        ck = (load_cfg().get("cookies") or {})
-        if ck.get("thor"):
+        if cfg_ck.get("thor"):
             if verbose:
                 print("[cookie] 实时提取失败(%s)，退回已保存配置" % e)
-            return ck, True
+            return cfg_ck, True
         raise
 
 
 # ---------------------------------------------------------------- h5st 签名
-def node_sign(function_id, body):
-    """调京东官方 js_security_v3 签名器，返回 (t, h5st)。"""
+def node_sign(function_id, body, req_appid="asset-h5", sign_appid="73c2f"):
+    """调京东官方 js_security_v3 签名器，返回 (t, h5st)。
+
+    req_appid  = 请求参数里的 appid（京豆 asset-h5 / 互动中心 pc_interact_center）
+    sign_appid = PSign 的 appId，即 h5st 第 3 段（京豆 73c2f / 互动中心 9a92f）
+    两者是不同东西，抓包实测确认，不要混为一个。
+    """
     if not os.path.isfile(CLI):
         raise RuntimeError("签名器 CLI 缺失: %s" % CLI)
     if not (os.path.isfile(NODE) or shutil_which(NODE)):
         raise RuntimeError("未找到 Node.js（设 JD_NODE 指定 node.exe 路径）")
-    out = subprocess.run([NODE, CLI, function_id, json.dumps(body, separators=(",", ":"))],
+    out = subprocess.run([NODE, CLI, function_id, json.dumps(body, separators=(",", ":")),
+                          req_appid, sign_appid],
                          capture_output=True, text=True, timeout=180, cwd=BASE)
     if out.returncode != 0:
         raise RuntimeError("h5st 签名失败: %s %s" % (out.stdout[-300:], out.stderr[-600:]))
@@ -358,7 +383,19 @@ def node_sign(function_id, body):
 
 
 # ---------------------------------------------------------------- HTTP
-def _req(function_id, body, method):
+_LAST_CALL = [0.0]
+
+
+def _throttle(gap=4.0):
+    """请求节流：京东 WAF 按端点频率限制（实测连打即 403），统一间隔。"""
+    dt = time.time() - _LAST_CALL[0]
+    if 0 < dt < gap:
+        time.sleep(gap - dt)
+    _LAST_CALL[0] = time.time()
+
+
+def _req(function_id, body, method, appid=None, sign_appid=None,
+         referer=None, origin=None):
     cookies, stale = ensure_cookies()
     miss = [k for k in NEED_KEYS if not cookies.get(k)]
     if miss:
@@ -371,12 +408,17 @@ def _req(function_id, body, method):
     if not uuid_:
         raise RuntimeError("cookie __jda 缺失，无法取 uuid")
 
-    t, hs = node_sign(function_id, body)
+    req_appid = appid or APPID
+    sign_id = sign_appid or "73c2f"
+    ref = referer or "https://bean.jd.com/myJingBean/list"
+    org = origin or "https://bean.jd.com"
+
+    t, hs = node_sign(function_id, body, req_appid, sign_id)
     params = {
         "h5st": hs,
         "uuid": uuid_,
         "loginType": 3,
-        "appid": APPID,
+        "appid": req_appid,
         "clientVersion": CLIENT_VERSION,
         "client": CLIENT,
         "t": t,
@@ -397,8 +439,8 @@ def _req(function_id, body, method):
     req = urllib.request.Request(url, data=data, method=method.upper())
     req.add_header("User-Agent", UA)
     req.add_header("Cookie", cookie_line)
-    req.add_header("Referer", "https://bean.jd.com/myJingBean/list")
-    req.add_header("Origin", "https://bean.jd.com")
+    req.add_header("Referer", ref)
+    req.add_header("Origin", org)
     req.add_header("Accept", "application/json, text/plain, */*")
     req.add_header("Accept-Language", "zh-CN,zh;q=0.9")
     if method == "post":
@@ -585,6 +627,340 @@ def run_status():
             "eaId": stt["eaId"], "name": stt["name"]}
 
 
+# ================================================================
+# 互动中心（interact.jd.com，PC 端「天天抽奖」转盘）
+# ================================================================
+# 2026-10-12 自行逆向 interact.jd.com 官方前端包
+# （storage.360buyimg.com/channel2022/jd-interactive-center/index-legacy-*.js）还原。
+# 注意与京豆是两套 appid：
+#   请求参数 appid = pc_interact_center；PSign appId（h5st 第3段）= 9a92f
+#   （京豆是 asset-h5 / 73c2f，切勿混用）
+#
+# 接口（全部实测跑通）:
+#   奖励查询  GET  pc_interact_reward_query   body={type:0, rk:false}
+#             → data={total, used, usable, nexp}（usable=可抽奖次数）
+#   任务列表  GET  pc_interact_assign_query   body={type:1}
+#             → data.assignmentInfoList[]（每项 id/type/extraType/completionFlag/...）
+#   抽奖信息  GET  pc_interact_assign_query   body={type:0}
+#             → data.lotteryDrawInfo / data.initCompletionInfo / data.resourceData
+#   最近获奖  GET  pc_interact_assign_query   body={type:3} → data.recentRewardList
+#   做任务    POST pc_interact_assign_execute
+#             body={eaId, type, itemId, extraType, rk, actionType}
+#             → data.assignmentRewardInfo.virtualPointReward.quantity（抽奖次数+N）
+#   抽奖      POST pc_interact_assign_execute
+#             body={rk:false, eaId, type:30}
+#             → data.assignmentRewardInfo.couponRewards[]（红包/优惠券/京豆）
+#
+# errCode: 302 任务已完成 / 303 不能重复 / 304 抽奖次数不足 / 305 领取成功 /
+#          306 已领过 / 309 有未完成任务 / 999 刷新重试
+#
+# ★ WAF 按端点频率限制（实测连打同端点即 HTTP 403 空响应），已内置节流；
+#   403 时优雅降级不中断（换端点或等次日）。
+
+INTERACT_APPID = "pc_interact_center"
+INTERACT_SIGN_APPID = "9a92f"
+INTERACT_REFERER = "https://interact.jd.com/"
+ISTATE = os.path.join(BASE, "jd_interact_state.json")
+
+# 2026-10-12 抓包实测 eaId（活动实例 id，服务端可能轮换，state 文件会动态更新）
+LOTTERY_EAID_DEFAULT = "Xjwi1vL7vuSJAyHWU6HVXV6MEfh"   # 天天抽奖转盘
+SIGN_TASK_EAID_DEFAULT = "TLBebEJwk4ADHLtRfDsRcV4UvS1"  # 互动中心签到任务（送抽奖机会）
+
+# 可自动做的任务类型（order=需真实下单，不做；followShop/productsInfo/shoppingActivity/sign 可自动）
+AUTO_TASK_EXTRA_TYPES = ("sign", "followShop", "productsInfo", "shoppingActivity")
+# 浏览类任务用 actionType:0（模拟自动触发），其余用 1（模拟点击）
+BROWSE_EXTRA_TYPES = ("productsInfo", "shoppingActivity")
+
+
+def load_istate():
+    if os.path.isfile(ISTATE):
+        try:
+            with open(ISTATE, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {}
+
+
+def save_istate(st):
+    st["ts"] = int(time.time())
+    with open(ISTATE, "w", encoding="utf-8") as f:
+        json.dump(st, f, ensure_ascii=False, indent=1)
+
+
+def _is_waf_blocked(st):
+    """HTTP 403 空响应 = WAF 频率限制（京东按端点限流）。"""
+    return st == 403
+
+
+def interact_api(function_id, body, method="get"):
+    """互动中心通用调用（自动带 pc_interact_center/9a92f + 节流 + JSON 解析）。"""
+    _throttle(4.0)
+    st, txt = _req(function_id, body, method,
+                   appid=INTERACT_APPID, sign_appid=INTERACT_SIGN_APPID,
+                   referer=INTERACT_REFERER, origin=INTERACT_REFERER)
+    try:
+        return st, json.loads(txt)
+    except Exception:
+        return st, {"_raw": txt[:500]}
+
+
+def interact_reward():
+    """抽奖机会查询 → {total, used, usable, nexp} 或 None。"""
+    st, r = interact_api("pc_interact_reward_query", {"type": 0, "rk": False})
+    if _is_waf_blocked(st):
+        return {"_blocked": True}
+    if isinstance(r, dict) and r.get("success"):
+        return r.get("data") or {}
+    return {"_raw": r if not isinstance(r, dict) else json.dumps(r, ensure_ascii=False)[:200]}
+
+
+def interact_assign_query(qtype):
+    """任务列表(type:1)/抽奖信息(type:0)/最近获奖(type:3)。"""
+    st, r = interact_api("pc_interact_assign_query", {"type": qtype})
+    if _is_waf_blocked(st):
+        return {"_blocked": True}
+    if isinstance(r, dict) and r.get("success"):
+        return r.get("data") or {}
+    return {"_raw": r if not isinstance(r, dict) else json.dumps(r, ensure_ascii=False)[:200]}
+
+
+def _task_item_id(task):
+    """复刻前端 x(task)：从各类 detail 里取 itemId。"""
+    sd = task.get("signDetail")
+    if sd and sd.get("itemId"):
+        return str(sd["itemId"])
+    for key in ("productList", "activityChannelList", "shopList"):
+        lst = task.get(key) or []
+        for it in lst:
+            if it.get("status") == 1 and it.get("itemId"):
+                return str(it["itemId"])
+    od = task.get("orderDetail")
+    if od and od.get("itemId"):
+        return str(od["itemId"])
+    return "1"
+
+
+def interact_do_task(task):
+    """执行单个任务 → {code, msg, gain}（gain=获得的抽奖机会数）。"""
+    extra = task.get("extraType") or ""
+    action = 0 if extra in BROWSE_EXTRA_TYPES else 1
+    body = {
+        "eaId": task.get("id") or task.get("eaId"),
+        "type": task.get("type", 5),
+        "itemId": _task_item_id(task),
+        "extraType": extra,
+        "rk": bool(task.get("rk", False)),
+        "actionType": action,
+    }
+    st, r = interact_api("pc_interact_assign_execute", body, "post")
+    if _is_waf_blocked(st):
+        return {"code": "403", "msg": "WAF 限流", "gain": 0}
+    code = _code_of(r)
+    msg = (r or {}).get("errMessage") or ERR_MSG.get(code, "")
+    gain = 0
+    awi = ((r or {}).get("data") or {}).get("assignmentRewardInfo") or {}
+    vp = awi.get("virtualPointReward") or {}
+    try:
+        gain = int(vp.get("quantity") or 0)
+    except Exception:
+        pass
+    return {"code": code, "msg": msg, "gain": gain, "success": (r or {}).get("success")}
+
+
+def parse_lottery_reward(resp):
+    """解析抽奖奖励 → 人类可读字符串 + 结构化列表。"""
+    awi = ((resp or {}).get("data") or {}).get("assignmentRewardInfo") or {}
+    items = []
+    for c in awi.get("couponRewards") or []:
+        items.append({
+            "kind": "coupon", "name": c.get("rewardName") or "券",
+            "quota": c.get("quota"), "threshold": c.get("usageThreshold"),
+            "range": c.get("useRange"), "time": c.get("useTimeRange"),
+            "couponId": c.get("couponId"),
+        })
+    for j in awi.get("jingDouRewards") or []:
+        items.append({"kind": "bean", "name": "京豆", "quantity": j.get("quantity")})
+    vp = awi.get("virtualPointReward") or {}
+    if vp.get("quantity"):
+        items.append({"kind": "chance", "name": "抽奖机会", "quantity": vp.get("quantity")})
+    if not items:
+        keys = awi.get("keys") or []
+        name_map = awi.get("localRewardNameMap") or {}
+        for k in keys:
+            items.append({"kind": "key%s" % k, "name": name_map.get(str(k)) or "奖品%s" % k})
+    return items
+
+
+def interact_draw(ea_id):
+    """抽奖一次 → {code, msg, items, success}。"""
+    st, r = interact_api("pc_interact_assign_execute",
+                         {"rk": False, "eaId": ea_id, "type": 30}, "post")
+    if _is_waf_blocked(st):
+        return {"code": "403", "msg": "WAF 限流", "items": []}
+    code = _code_of(r)
+    msg = (r or {}).get("errMessage") or ERR_MSG.get(code, "")
+    items = parse_lottery_reward(r) if (r or {}).get("success") else []
+    return {"code": code, "msg": msg, "items": items, "success": (r or {}).get("success")}
+
+
+def _reward_text(items):
+    parts = []
+    for it in items:
+        if it.get("kind") == "coupon":
+            parts.append("%s%.0f元(满%.0f可用,%s)" % (
+                it.get("name") or "券", it.get("quota") or 0,
+                it.get("threshold") or 0, it.get("time") or ""))
+        elif it.get("kind") == "bean":
+            parts.append("京豆x%s" % it.get("quantity"))
+        elif it.get("kind") == "chance":
+            parts.append("抽奖机会+%s" % it.get("quantity"))
+        else:
+            parts.append(it.get("name") or "奖品")
+    return "、".join(parts) if parts else "无"
+
+
+def run_interact_auto(force=False):
+    """互动中心每日流程：查机会 → 抽奖 → 做任务 → 再抽奖。发 JSON。"""
+    res = {"ts": int(time.time()), "draws": [], "tasks": []}
+    state = load_istate()
+    lottery_eaid = state.get("lottery_eaId") or LOTTERY_EAID_DEFAULT
+
+    # 1) 抽奖机会
+    rw = interact_reward()
+    if rw.get("_blocked"):
+        res.update({"ok": False, "state": "waf_blocked",
+                    "msg": "reward_query 被 WAF 限流(403)，稍后再试"})
+        return res
+    if "_raw" in rw:
+        res.update({"ok": False, "state": "reward_bad", "msg": str(rw.get("_raw"))[:200]})
+        return res
+    usable = int(rw.get("usable") or 0)
+    res["reward"] = {"total": rw.get("total"), "used": rw.get("used"), "usable": usable}
+
+    # 2) 抽奖（把现有机会抽完）
+    drawn = 0
+    while usable > 0 and drawn < 30:
+        d = interact_draw(lottery_eaid)
+        res["draws"].append(d)
+        drawn += 1
+        if d.get("code") == "403":
+            res["waf_blocked"] = True
+            break
+        if d.get("success"):
+            usable -= 1
+            res.setdefault("rewards", []).append(_reward_text(d.get("items") or []))
+            continue
+        code = d.get("code")
+        if code in ("304",):       # 抽奖次数不足
+            break
+        if code in ("302", "303", "305", "306"):
+            usable -= 1
+            continue
+        if code in ("3", "-100"):
+            res.update({"ok": False, "state": "login_expired",
+                        "msg": "京东登录态失效：请在 Thorium 重新登录 jd.com"})
+            return res
+        # 其他错误（如 999 火爆）停止重试，避免触发风控
+        res["draw_note"] = "code=%s %s" % (code, d.get("msg"))
+        break
+
+    # 3) 做任务（任务列表查询被限流时用缓存/内置签到任务兜底）
+    tasks = []
+    q = interact_assign_query(1)
+    if q.get("_blocked"):
+        res["task_query"] = "waf_blocked"
+        if state.get("sign_task_eaId"):
+            tasks = [{"id": state["sign_task_eaId"], "type": 5,
+                      "extraType": "sign", "name": "互动签到(缓存eaId)"}]
+    elif "_raw" in q:
+        res["task_query"] = "bad"
+    else:
+        lst = q.get("assignmentInfoList") or []
+        for t in lst:
+            if not t.get("completionFlag") and (t.get("extraType") in AUTO_TASK_EXTRA_TYPES):
+                tasks.append({"id": t.get("id"), "type": t.get("type"),
+                              "extraType": t.get("extraType"),
+                              "name": t.get("name") or t.get("extraType"),
+                              "rk": t.get("rk", False)})
+        # 缓存未完成签到任务 eaId 供限流时兜底（只从未完成项取，避免被已完成项覆盖）
+        for t in tasks:
+            if t.get("extraType") == "sign" and t.get("id"):
+                state["sign_task_eaId"] = t["id"]
+    if not tasks and not q.get("_blocked"):
+        # 列表拿到了但没有未完成任务 → 用内置签到任务兜底（幂等）
+        tasks = [{"id": state.get("sign_task_eaId") or SIGN_TASK_EAID_DEFAULT,
+                  "type": 5, "extraType": "sign", "name": "互动签到"}]
+
+    gained = 0
+    for t in tasks:
+        if not t.get("id"):
+            continue
+        r = interact_do_task(t)
+        res["tasks"].append({"name": t.get("name"), **{k: r.get(k) for k in ("code", "msg", "gain")}})
+        if r.get("code") == "403":
+            res["waf_blocked"] = True
+            break
+        gained += int(r.get("gain") or 0)
+    if gained:
+        res["chance_gained"] = gained
+        save_istate(state)
+
+    # 4) 任务送了新机会 → 再抽
+    usable2 = usable + gained
+    if usable2 > 0 and not res.get("waf_blocked"):
+        while usable2 > 0 and drawn < 30:
+            d = interact_draw(lottery_eaid)
+            res["draws"].append(d)
+            drawn += 1
+            if d.get("code") == "403":
+                res["waf_blocked"] = True
+                break
+            if d.get("success"):
+                usable2 -= 1
+                res.setdefault("rewards", []).append(_reward_text(d.get("items") or []))
+                continue
+            # 304 次数不足 / 302 303 305 306 幂等完成 → 各消耗一次后继续；
+            # 其他错误（999 火爆等）停止，避免触发风控
+            if d.get("code") in ("304", "302", "303", "305", "306"):
+                usable2 -= 1
+                if d.get("code") == "304":
+                    break  # 服务端明确没次数了，不必再试
+                continue
+            break
+
+    ok_draws = [d for d in res["draws"] if d.get("success")]
+    ok_tasks = [t for t in res["tasks"] if t.get("gain")]
+    res["ok"] = True
+    res["state"] = "done"
+    res["summary"] = "抽奖%d次(成功%d) 做任务%d项(获得机会+%d)" % (
+        len(res["draws"]), len(ok_draws), len(res["tasks"]), gained)
+    if res.get("rewards"):
+        res["reward_text"] = "；".join(res["rewards"])
+    if res.get("waf_blocked"):
+        res["summary"] += " [部分请求被WAF限流]"
+    save_istate(state)
+    return res
+
+
+def run_interact_status():
+    """只读：抽奖机会 + 任务完成情况。"""
+    rw = interact_reward()
+    if rw.get("_blocked"):
+        return {"ok": False, "state": "waf_blocked", "msg": "reward_query 被 WAF 限流(403)"}
+    if "_raw" in rw:
+        return {"ok": False, "state": "reward_bad", "msg": str(rw.get("_raw"))[:200]}
+    out = {"ok": True, "reward": rw}
+    q = interact_assign_query(1)
+    if q.get("_blocked"):
+        out["tasks"] = "waf_blocked"
+    elif "_raw" not in q:
+        lst = q.get("assignmentInfoList") or []
+        out["tasks"] = [{"name": t.get("name"), "extraType": t.get("extraType"),
+                         "done": t.get("completionFlag")} for t in lst]
+    return out
+
+
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "auto"
     if cmd == "cookie":
@@ -608,8 +984,12 @@ def main():
         r = run_auto(force=True)
     elif cmd == "status":
         r = run_status()
+    elif cmd == "interact":
+        r = run_interact_auto()
+    elif cmd == "interact_status":
+        r = run_interact_status()
     else:
-        print("未知命令: %s（支持 cookie/auto/status/sign）" % cmd)
+        print("未知命令: %s（支持 cookie/auto/status/sign/interact/interact_status）" % cmd)
         sys.exit(2)
         return
     print(json.dumps(r, ensure_ascii=False))
