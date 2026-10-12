@@ -15,6 +15,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | 美团分销会场 | `scripts/mt_union_coupon.py` | 「美团分销小程序」分销会场每日券包（list→grant 链路）+ 分销中心内嵌跨券墙，单日 ¥180+ | Python + Node（H5 签名） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
 | WorkBuddy 积分 | `scripts/wb_score.py` | Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
+| WorkBuddy 成长中心 | `scripts/wb_growth.py` | 补齐成长中心 6 项奖励：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒（先只读判有无资源→没有跳过、有就补齐，全幂等；凭证复用 totorosir 三通道，无需额外配置） | Python 标准库（复用 totorosir skill 取凭据） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
@@ -123,7 +124,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 美团：福利社券包领取、营销页红包（配了 recallToken 才有）、福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）、分销会场每日券包（grant 链路，单日 ¥180+）+ 分销中心跨券墙
 - 南航：发现新境签到、营销活动签到领里程（活动 ID 动态探测，过期活动自动跳过）、签到抽奖机会检测与消耗（消耗需新鲜小程序 sessionId，半自动）
 - 魔搭：登录魔粒 +250（会话副作用，访问首页自动入账）+ 点赞刷分 +40（star/unstar 循环 20 次）
-- WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）
+- WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）+ **成长中心 6 项补齐**（`wb_growth.py`：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒，先只读判有无资源、没有就跳过，全幂等；已纳入总控第【9】步第 2 个子步骤）
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 
@@ -180,6 +181,12 @@ python scripts/ms_magicube.py status
 # WorkBuddy：签到 + 派猫猫旅行（auto=全部；凭证走本地 atrest.key 解密）
 python scripts/wb_score.py auto
 python scripts/wb_score.py status
+
+# WorkBuddy 成长中心：补齐 6 项奖励（盲盒/连登兑换/断登补签/接任务/领任务奖/能量开Buddy）
+# 先只读判有无可领资源→没有就跳过、有就补齐，全幂等；凭证复用 totorosir skill 三通道
+python scripts/wb_growth.py auto           # 补齐全部成长中心可领项（定时任务用这个）
+python scripts/wb_growth.py status         # 只读播报 6 项可领/可补/可兑状态（不发写请求）
+python scripts/wb_growth.py probe          # 逐接口连通/数据探测（调试）
 
 # 办公小浣熊：每日积分确认（auto=refresh+查余额；refresh_token 自动轮换回存）
 python scripts/xhx_office_points.py auto
