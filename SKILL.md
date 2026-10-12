@@ -19,6 +19,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
+| 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -106,6 +107,14 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 **桌面端（Electron 客户端，账号体系独立）**：`scripts/loomy_desktop_tasks.py` 完成新手任务（8 项共 10000 分，客户端专属，web 端无此任务接口）。登录态自动从本机 `<本机路径>` 读取（`token` 头鉴权，32 位讯飞 passport session，与 web cookie 不同载体、无需配置）。**每个账号需在桌面端登录一次后跑 `run` 领取**（换号=桌面端重登，脚本自动识别）；session 寿命 14 天固定无续期。生产接口 host 固定 `loomyad.xunfei.cn`（客户端本机残留测试地址会全程 100002，脚本已规避）。用法：`status` 查进度 / `run` 补齐未完成项（服务端幂等）。2026-10-12 两个账号均已满额。**已纳入每日总控任务第【12】步**：每天跑 `run` 做「检测+未完成自动补齐」——满额时零副作用跳过，服务端新增任务或换登录账号时自动跟进入账；100002（约每 14 天 session 到期）标注【Loomy桌面登录失效】提醒在桌面端重登一次即恢复。
 
+### 5) 天翼云盘（cloud.189.cn）
+
+浏览器登录 [cloud.189.cn](https://cloud.189.cn) 后，把**任意一条 cloud.189.cn 请求的整行 Cookie** 发我（或直接告诉我"浏览器已登录天翼189"，我用 CDP 自动抓，无需手抓）。核心凭证是 `SSON`（httpOnly 单点登录 cookie），脚本链路：`SSON → unifyLoginForPC（收服务端会话 cookie）→ POST api.cloud.189.cn/getSessionForPC.action 换 sessionKey/accessToken/refreshToken → GET /mkt/userSign.action?sessionKey=...` 签到领随机空间。
+
+- 每日个人签到：随机 +几 MB ~ 几十 MB 空间（实测 2026-10-12 +26MB，服务端 totalSize 对账一致）；`isSign=true` 时当天重复跑零副作用
+- 凭证寿命：accessToken/refreshToken 由 getSessionForPC 下发（sdk 标称 7 天），SSON 本身长期有效；配置存 `c189_config.json`（sson / accessToken / refreshToken / sessionKey / loginName）
+- 失效表现：`getSessionForPC` 返回非 0 res_code 或 HTTP 400 → 标注【天翼189失效】，重抓一条 SSON cookie 即可（或跑 `cookie_sync.py` 扩展）
+
 ---
 
 ## 二、我来自动完成
@@ -127,6 +136,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）+ **成长中心 6 项补齐**（`wb_growth.py`：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒，先只读判有无资源、没有就跳过，全幂等；已纳入总控第【9】步第 2 个子步骤）
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
+- 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
 
 ---
 
@@ -200,6 +210,11 @@ python scripts/loomy_points.py status
 python scripts/loomy_desktop_tasks.py status          # 查身份与 8 项进度
 python scripts/loomy_desktop_tasks.py run             # 补齐全部未完成项（服务端幂等）
 python scripts/loomy_desktop_tasks.py probe           # 只测连通/鉴权
+
+# 天翼189云盘：每日签到领随机空间（SSON cookie 鉴权；auto=签到+容量播报）
+python scripts/c189_signin.py auto                    # 签到 + 容量变化播报（定时任务用这个）
+python scripts/c189_signin.py status                  # 只读：容量/登录态
+python scripts/c189_signin.py init "<整行cookie或SSON值>"   # 落盘凭证并立即校验
 
 # 凭证同步：魔搭/小浣熊/Loomy 三家轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 python scripts/cookie_sync.py                          # 全部三家
