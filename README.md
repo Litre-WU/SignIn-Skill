@@ -49,32 +49,34 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    各平台模板：`mt_config.example.json`、`csair_config.example.json`、`ms_config.example.json`、`xhx_config.example.json`、`loomy_config.example.json`。
 4. 运行（幂等，可重复跑）：
    ```bash
-python scripts/mt_api_coupon.py claim                # 美团券包（惠省小程序首页红包墙）
-python scripts/mt_api_coupon.py probe
-python scripts/mt_gundam_coupon.py                   # 美团福利社 H5
-python scripts/mt_union_coupon.py                    # 美团分销会场
-python scripts/csair_signin.py signin                # 南航（小程序）
-python scripts/csair_signin.py refresh '<login响应JSON>'
-python scripts/ms_magicube.py auto                   # 魔搭 ModelScope
-python scripts/wb_score.py auto                      # WorkBuddy 积分
-python scripts/wb_growth.py auto                     # WorkBuddy 成长中心
-python scripts/xhx_office_points.py auto             # 办公小浣熊（商汤）
-python scripts/loomy_points.py auto                  # Loomy（讯飞）
-python scripts/loomy_desktop_tasks.py run            # Loomy 桌面端
-python scripts/c189_signin.py auto                   # 天翼189云盘
-python scripts/jd_web_signin.py auto                 # 京东京豆 + 互动中心
-python scripts/jd_web_signin.py interact
-python scripts/aliyun_signin.py auto                 # 阿里云盘
+   python scripts/mt_api_coupon.py claim                # 美团券包（惠省小程序首页红包墙）
+   python scripts/mt_api_coupon.py probe
+   python scripts/mt_gundam_coupon.py                   # 美团福利社 H5
+   python scripts/mt_union_coupon.py                    # 美团分销会场
+   python scripts/csair_signin.py signin                # 南航（小程序）
+   python scripts/csair_signin.py refresh '<login响应JSON>'
+   python scripts/ms_magicube.py auto                   # 魔搭 ModelScope
+   python scripts/wb_score.py auto                      # WorkBuddy 积分
+   python scripts/wb_growth.py auto                     # WorkBuddy 成长中心
+   python scripts/xhx_office_points.py auto             # 办公小浣熊（商汤）
+   python scripts/loomy_points.py auto                  # Loomy（讯飞）
+   python scripts/loomy_desktop_tasks.py run            # Loomy 桌面端
+   python scripts/c189_signin.py auto                   # 天翼189云盘
+   python scripts/jd_web_signin.py auto                 # 京东京豆 + 互动中心
+   python scripts/jd_web_signin.py interact
+   python scripts/aliyun_signin.py auto                 # 阿里云盘
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 
-### 已废弃脚本（保留供参考）
+## 已废弃脚本（保留供参考）
 
-- `jd_signin.py` — 京东京豆（旧 App 端）：已废弃：signBeanIndex 接口 2026-10-12 起服务端下线
-- `jd_login.py` — 京东登录（旧 App 端扫码）：已废弃：京东新版拒绝 tmauth，改用 Web 端 jd_web_signin.py
-### 辅助脚本 / 离线单测
+- `jd_signin.py` — 京东京豆（旧 App 端）：signBeanIndex 接口 2026-10-12 起服务端下线
+- `jd_login.py` — 京东登录（旧 App 端扫码）：京东新版拒绝 tmauth，改用 Web 端 jd_web_signin.py
+
+## 辅助脚本 / 离线单测
 
 - `browser_cookies.py` — 浏览器 Cookie 提取库：绕 Chromium 独占锁读取并解密 cookie；跨平台 TEMP 整库缓存复用
+
 
 ## 安全声明
 
@@ -82,7 +84,6 @@ python scripts/aliyun_signin.py auto                 # 阿里云盘
 - 凭证有效期有限（分钟~天级），且部分平台是**服务端轮换制**（不是自然过期），失效后需重新抓包或跑 `cookie_sync.py` 从浏览器同步
 - 自动化操作可能违反部分平台的服务条款，风险自负；请勿高频调用，接口异常先停手排查
 - 仅供学习交流
-
 
 ---
 
