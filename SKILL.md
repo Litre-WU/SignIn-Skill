@@ -1,6 +1,6 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、夸克网盘每日签到领空间、阿里云盘每日签到。夸克/阿里云盘只需浏览器已登录即可全自动（脚本直接从本机读 cookie 与 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"夸克签到"、"夸克网盘"、"阿里云盘"、"阿里网盘"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -21,7 +21,9 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
-| 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
+| 夸克网盘（pan.quark.cn） | `scripts/quark_signin.py` | 每日签到领空间。★鉴权判据=不带 cookie 会 401 `require login`；★入账判据=签到前后 `member.sign_reward` 增量（`growth/info` 的 data 恒为 `{}`，判不了状态） | Python 标准库 |
+| 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
+| 凭证同步（魔搭/小浣熊/Loomy/夸克） | `scripts/cookie_sync.py` | ★四个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期。阿里云盘不走 cookie（走 Local Storage），不在此列 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -170,6 +172,31 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
+### 10) 夸克网盘（pan.quark.cn，2026-10-12 建成）
+
+**无需抓包**：浏览器登录 [pan.quark.cn](https://pan.quark.cn) 后，脚本自己从本机取 cookie。
+
+- 鉴权：**纯 Cookie**，会话核心键 `__pus`（另有 `__kps`/`__kp`/`__uid`/`b-user-id`/`isg`/`tfstk`…）
+- 签到：`POST https://drive-m.quark.cn/1/clouddrive/capacity/growth/sign?pr=ucpro&fr=pc&uc_param_str=` body `{"sign_cyclic":true}`
+- 状态：`GET .../capacity/growth/info` ★**实测 `data` 恒为 `{}`**，服务端不返回明细，**不能用来判断"今天签没签"**
+- ★★**入账判据**：`GET .../member` 的 `data.extend_capacity_composition.sign_reward`（签到累计奖励字节数）。**签到前后各查一次取增量**——增量 >0 = 今日签到成功并发放了空间；=0 = 今日已签（幂等）或当日无奖励。与天翼189「容量前后差」同一思路
+- ★★**鉴权判据**：不带 cookie 时接口回 HTTP 401 `{"code":31001,"message":"require login [guest]"}`，带 cookie 回 200 `code:0`。**别只看 200**——要用这个 401 对照来确认 cookie 真的有效
+- 凭证寿命：cookie 会随服务端轮换，`cookie_sync.py` 已纳入夸克（第 0 步自动刷新）；Cookies 库被浏览器独占锁时，回退 TEMP 整库缓存（含别的平台留下的副本）
+- 失效表现：连续报 `require login` → 标注【夸克登录失效】，浏览器重新登录或 `quark_signin.py init '<整行Cookie>'`
+
+### 11) 阿里云盘（www.aliyundrive.com，2026-10-12 建成）
+
+**无需抓包、无需 CDP、无需关浏览器**：凭证在浏览器 **Local Storage** 里，脚本直接读磁盘。
+
+- ★关键机制：Chromium 的 **Cookies 库被运行中的浏览器独占锁**（26 次重试也读不出），但 **Local Storage 的 `.ldb`/`.log` 不被锁**，随时可读 → 这是阿里云盘能全自动的原因
+- ★★leveldb 坑：完整 key（`<origin>\x00\x01<keyname>`）因**前缀压缩**在 `.ldb` 里不一定连续出现，按 key 正则搜索会 **0 命中** → 改为**按值搜索**：搜 `"refresh_token":"<32位hex>"` 指纹，再用括号配对向两侧扩出完整 token JSON
+- ★refresh_token **不会因刷新而失效**（2026-10-12 实测：同一代连刷两次、两代并存均 200）→ 与浏览器 Web 端**不互斥**，不会把浏览器踢下线
+- 链路：refresh_token → `POST auth.aliyundrive.com/v2/account/token`（`grant_type=refresh_token`）换 access_token（7200s）→ `POST member.aliyundrive.com/v1/activity/sign_in_list`（body `{"_rx-s":"mobile"}`，Bearer 鉴权）**兼做签到与查状态**
+- ★★`signInLogs` 判读坑：`calendarMonth` 是**中文**（`"十月"`）、`calendarDay` 是**字符串**（`"12"`）——直接 `int()` 会全军覆没；且"今天未签"也会出现在 logs 里（`status:"miss"`），必须同时排除 miss
+- 已知限制：领奖端点 `sign_in_reward` 被客户端版本门控返回 **403「请升级最新客户端访问」**。签到本身不受影响，仅在 `isReward=true` 时尝试；403 记为受限、不算失败
+
+---
+
 ## 二、我来自动完成
 
 收到你的整条请求后，我会：
@@ -191,6 +218,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
 - 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；已纳入总控第【14】步第 2 个子步骤）
+- 夸克网盘：每日签到领空间（`quark_signin.py auto`；浏览器 cookie 鉴权，入账以 `sign_reward` 增量为准；幂等，当天重复跑零副作用）
+- 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
 
 ---
 
@@ -213,6 +242,12 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |
 | 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
 | 京东互动中心 `code:3` 请先登录 | 浏览器京东登录态失效/被轮换 | 同签到：Thorium 重新登录 jd.com，下次运行自动读新 cookie |
+| 夸克签到「接口已执行但无增量」(`reward_delta_mb=0`) | 服务端 `data` 恒为 `{}`，只有 `sign_reward` 增量能证明确实发放；增量 0 多为**今日已签**（幂等）或当日奖励已达上限 | 正常；次日首跑应见 +增量。若连日 0 且 `last_day` 没更新，跑 `quark_signin.py probe` 看三个端点原始响应 |
+| 夸克报 `require login` / 401 code 31001 | cookie 被服务端轮换或不含 `__pus` | 浏览器重登 pan.quark.cn，或 `quark_signin.py init '<整行Cookie>'`；总控第 0 步 `cookie_sync.py` 会自动刷新 |
+| 夸克 cookie 提取不到（Cookies 库被锁） | 浏览器运行中持有独占锁 | 已内置 TEMP 整库缓存回退（`_wb_ck_*.db` / `_jd_ck.db`，按新鲜度）；仍失败就用已存 `quark_config.json` |
+| 阿里云盘取不到 token | 浏览器 Local Storage 里没有（未登录/换 profile） | 浏览器登录 www.aliyundrive.com 后跑 `aliyun_signin.py probe`；或 `init <32位refresh_token>` 手动兜底 |
+| 阿里云盘领奖 403「请升级最新客户端访问」 | 领奖端点按客户端版本门控 | 已知限制，签到不受影响；仅在有待领奖时尝试，403 记为受限不算失败 |
+| 阿里云盘「今日已签」却记成首次 | `signInLogs` 的中文月份/字符串日解析失败会判不到今日 | 已修（`_cn2int` 支持「十月」/"12"）；核对用 `aliyun_signin.py status` |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -291,8 +326,21 @@ python scripts/jd_web_signin.py sign                  # 强制签到（调试用
 python scripts/jd_web_signin.py interact              # 互动中心：抽奖机会→抽奖→做任务赚机会→再抽（定时任务用这个）
 python scripts/jd_web_signin.py interact_status       # 只读：抽奖机会 + 任务完成情况
 
-# 凭证同步：魔搭/小浣熊/Loomy 三家轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
-python scripts/cookie_sync.py                          # 全部三家
+# 夸克网盘（浏览器登录 pan.quark.cn，脚本自动取 cookie）
+python scripts/quark_signin.py auto                    # 签到：member 前后对账 sign_reward 增量（定时任务用这个）
+python scripts/quark_signin.py status                  # 只读：会员类型/累计签到奖励/总容量
+python scripts/quark_signin.py probe                   # 探 cookie 来源 + 三个端点原始响应
+python scripts/quark_signin.py init '<整行Cookie>'      # 手动写 cookie
+
+# 阿里云盘（浏览器登录 www.aliyundrive.com，脚本读 Local Storage，无需 cookie）
+python scripts/aliyun_signin.py auto                   # 签到 + 判读今日记录（定时任务用这个）
+python scripts/aliyun_signin.py status                 # 只读：累计天数/今日是否已签
+python scripts/aliyun_signin.py probe                  # 探凭证来源 + 原始签到响应
+python scripts/aliyun_signin.py init <32位refresh_token>  # 手动兜底；init auto = 强制从浏览器重提
+
+# 凭证同步：魔搭/小浣熊/Loomy/夸克 轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
+# 阿里云盘不走 cookie（凭证在 Local Storage），不在此列
+python scripts/cookie_sync.py                          # 全部四家
 python scripts/cookie_probe.py                         # 只读诊断：浏览器值 vs 配置值 + 过期属性
 ```
 
