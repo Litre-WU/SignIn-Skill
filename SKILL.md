@@ -1,6 +1,6 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -10,7 +10,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
 | 南航（中国南方航空小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 签到抽奖机会检测（抽奖消耗半自动） | Python 标准库（H5 重登需 Playwright） |
-| 美团券包 | `scripts/mt_api_coupon.py` | 每日领券 + 营销页红包（可选） | Python + Node（mtgsig 签名沙箱） |
+| 美团券包（惠省小程序首页红包墙） | `scripts/mt_api_coupon.py` | 每日领券 + 营销页红包（可选）。★2026-10-12 起：列表体改 JSON、幂等改 **rightCode 级**（当天后出现的新批次也能领到）、新增 `probe`/`share` 子命令 | Python + Node（mtgsig 签名沙箱） |
 | 美团福利社 H5 活动页 | `scripts/mt_gundam_coupon.py` | 福利社 tab 的 gundam 活动页（"周末加码必得百元券包"）：跨券墙(百元券包主力) + 限时抢券 + 天降掉券，全自动发现活动 ID | Python + Node |
 | 美团分销会场 | `scripts/mt_union_coupon.py` | 「美团分销小程序」分销会场每日券包（list→grant 链路）+ 分销中心内嵌跨券墙，单日 ¥180+ | Python + Node（H5 签名） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
@@ -49,6 +49,13 @@ https://media.meituan.com/fulishemini/couponActivity/listActivityCoupon...
 > **分销会场（"美团分销"小程序的会场券包）**：脚本 `mt_union_coupon.py`。链路 `listActivityCoupon/distributionVenue`（拉当日券列表 + recallToken）→ `grantActivityCoupon/distributionVenue`（H5 签名领取）。**复用同一条福利社抓包的 wm_logintoken 即可，无需额外抓包**（分销接口认账号级 token）。若想顺带领分销中心内嵌的跨券墙，需在 `scripts/mt_union_config.json` 配 `gdId/pageId/activityViewId/instanceId`（从分销中心页抓包取），不配则自动跳过。
 >
 > 关键点：① grant 必须用 **H5 签名**（`yodaReady=h5&csecplatform=4`），小程序签名会被拒 `code:30001`；② `recallToken` 含时间戳、时效极短，每次必须现拉列表，不能复用存盘响应；③ 幂等按 rightCode 记录（grant 返回 code:200 即视为该批已处理，含互斥未发放的券），新批次 rightCode 变化时自动跟进。
+
+> **★惠省小程序首页「红包墙」（2026-10-12 补充定案）**：就是上面「美团券包」覆盖的活动，`activityName=惠省红包墙活动配置`、`activityCode=101357000`，路径 `fulishemini/couponActivity/listActivityCoupon|grantActivityCoupon`（**无** `/distributionVenue` 中缀，签名用小程序 mp 签名 `csecplatform=3`）。三个容易踩的点：
+> 1. **`couponViewId` 是"是否已在卡包"的权威判据**：`couponViewId==null` = 可领；带值 = 已拥有，别再发。★注意本端点 `status` 语义与分销会场**相反**（这里 `status==1` 才是可领，实测 21/21、22/22 完全相关），但那只是一种巧合对齐、不是服务端契约——**勿照搬分销会场的 `status==0` 过滤**，也不要把 `status==1` 当硬条件，否则服务端一旦省略/改动 status 就会漏券。误发已拥有券由服务端幂等兜底（grant 照样回 code:200、不再发放）。
+> 2. **幂等必须是 rightCode 级，不能是日级**：红包墙当天会刷新批次（实测 `totalCouponValue` 从 ¥222 涨到 ¥412），日级标记（`state[今天]=="done"` 整日跳过）会把后出现的新批次全部挡掉，表现为"当天的活动没领"。已改为按 grant 实际发送过的 rightCode 记录，只领新出现的券；旧日级状态自动迁移。
+> 3. **`querySharePopWindow`（分享弹窗查询）是只读空操作**：form 体 + `scene=1`，实测返回 `{"code":0,"data":null}` = 无弹窗、无待领分享奖励。用 `python scripts/mt_api_coupon.py share` 可随时复查；哪天真返回非 null data，再按其中的分享任务补实现。
+>
+> 诊断"今天怎么没领"的标准动作：`python scripts/mt_api_coupon.py probe`（只拉列表不领取）→ 看「可领 N / 已在卡包 M」两个数。可领=0 即已领完（不是失效）；可领>0 而本地已记录该 rightCode，才是幂等记录异常。
 
 ---
 
@@ -176,7 +183,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 > **凭证会自己失效怎么办？** 魔搭 / 小浣熊 / Loomy 这三家的凭证**不是自然过期，而是服务端轮换**——浏览器每次访问站点都会自动拿到新凭证，脚本存的却是静态快照，所以过一阵必然失效（典型表现：401 / 400 params_invalid_error）。已内置 `cookie_sync.py`：从浏览器读取最新 cookie 写回配置，浏览器没开就自动拉起访问三个站点触发续期，用完自动关闭。**每日任务第 0 步自动执行**，你也可以随时手动跑一次。诊断用 `cookie_probe.py`（对比浏览器值与配置值、显示过期属性）。
 
 **每日自动覆盖范围**：
-- 美团：福利社券包领取、营销页红包（配了 recallToken 才有）、福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）、分销会场每日券包（grant 链路，单日 ¥180+）+ 分销中心跨券墙
+- 美团：惠省小程序首页红包墙领券（`couponViewId` 判可领、rightCode 级幂等，当天后出现的新批次也能领到）+ 营销页红包（配了 recallToken 才有）+ 福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）+ 分销会场每日券包（grant 链路，单日 ¥180+）+ 分销中心跨券墙
 - 南航：发现新境签到、营销活动签到领里程（活动 ID 动态探测，过期活动自动跳过）、签到抽奖机会检测与消耗（消耗需新鲜小程序 sessionId，半自动）
 - 魔搭：登录魔粒 +250（会话副作用，访问首页自动入账）+ 点赞刷分 +40（star/unstar 循环 20 次）
 - WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）+ **成长中心 6 项补齐**（`wb_growth.py`：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒，先只读判有无资源、没有就跳过，全幂等；已纳入总控第【9】步第 2 个子步骤）
@@ -199,6 +206,9 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 美团跨券墙 fetch 返回 `subcode:12 活动太火爆` | 风控：未带 info 接口下发的 `ta.uuid`/`iuuid` cookie | 已修复——脚本用 cookie jar 先 info 收 cookie 再 fetch；若仍失败说明该活动风控更严或该账号被限 |
 | 南航营销签到 `S0023 奖品状态不正确` | 历史过期活动的残留记录 | 忽略（脚本已标跳过） |
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
+| ★美团惠省红包墙「今天的活动没领」 | 两种可能：① **其实已领完**（跑 `mt_api_coupon.py probe` 看「可领 N / 已在卡包 M」，可领=0 即领完，曾在 00:58 手动跑过并标记过当日）；② 旧版**日级幂等**把当天后出现的新批次挡掉了（红包墙当天会刷新，实测墙总额 ¥222→¥412） | 已修复为 rightCode 级幂等（2026-10-12），只领新出现的券；仍异常就跑 `probe` 对比「可领数」与 `mt_claim_state.json` 里当日 `granted_rc` 数量 |
+| 美团惠省红包墙 probe 显示「可领 0 / 已在卡包 38」但记得没领过 | 之前某次运行（含手动测试）已领，`couponViewId` 有值即代表在卡包 | 正常；想核对去美团小程序「我的→红包/卡包」按日期看 |
+| 美团 `querySharePopWindow` 返回 `data:null` | 无分享弹窗、无待领分享奖励 | 正常空操作；哪天真返回非 null data 再补分享任务实现 |
 | 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
 | 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |
 | 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
@@ -223,6 +233,12 @@ python scripts/mt_gundam_coupon.py status  # 查 H5 活动页领取记录
 python scripts/mt_union_coupon.py         # 分销会场券包 + 分销中心跨券墙（幂等）
 python scripts/mt_union_coupon.py probe   # 只拉列表看可领券，不领取
 python scripts/mt_union_coupon.py status  # 查领取记录
+
+# 美团惠省红包墙（首页领券）：领券 / 只读诊断 / 分享弹窗只读复查
+python scripts/mt_api_coupon.py claim     # 领券（rightCode 级幂等）
+python scripts/mt_api_coupon.py probe     # 只拉列表看「可领 N / 已在卡包 M」，不领取
+python scripts/mt_api_coupon.py share     # 只读查分享弹窗（data=null = 无待领分享奖励）
+python scripts/mt_api_coupon.py status    # 查领取记录（rightCode 累计 + 墙总额）
 
 # 南航：签到（幂等）
 python scripts/csair_signin.py signin
