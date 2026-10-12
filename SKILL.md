@@ -20,7 +20,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
-| 京东京豆 | `scripts/jd_signin.py` | 每日京豆签到（`signBeanIndex`，+N 京豆/日，连签有加成；幂等，已签跳过） | Python 标准库 + `qrcode`（登录用） |
+| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成；幂等，已签跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -118,16 +118,27 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
-### 6) 京东京豆
+### 6) 京东京豆（Web 端，2026-10-12 自行逆向）
 
-**必须扫码登录一次**（不能抓包代劳）：京东把京豆签到接口的鉴权绑定在 **App 端会话 `pt_key`/`pt_pin`** 上，电脑浏览器登录（`thor`/`pin`/`flash` 那套）**不被签到服务接受**（实测返回 `DG-9999 系统异常`，且伪造 pt_key 立刻回 `code:3 用户未登录`）。`pt_key` 只能通过京东 App 扫码授权获得。
+**无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
+脚本每次运行都从浏览器磁盘 Cookies 库**实时提取最新 cookie**，所以只要浏览器里京东是登录态，签到就全自动。
 
-**操作**：跟我说"京东扫码"，我跑 `jd_login.py` 生成二维码，你用**京东 App**（首页右上角 + → 扫一扫）扫一下授权，脚本自动换出 `pt_key`/`pt_pin` 存进 `jd_config.json`（有效期约 90 天）。之后每日签到全自动。
+- 页面：`https://bean.jd.com/myJingBean/list`（SPA；老的 `/bean/index`、`/bean/signIndex.action` 已 404 下线）
+- 查询：`GET api.m.jd.com/?functionId=pc_interact_sign_query&type=1` → 拿 `eaId`/`activityId`/连签天数/今日是否已签
+- 签到：`POST api.m.jd.com/` `functionId=pc_interact_sign_execute`，业务体 `{type:5, eaId, itemId:"1", extraType:"sign"}`
+- 挂载任务：`POST` 同接口 `{type:0, eaId:"task"}`（幂等，可能送豆）
+- 奖励解析：`assignmentRewardInfo.jingDouRewards[].quantity` 求和 = 京豆数
 
-- 链路：`new_login_entrance`（s_token）→ `tmauthreflogurl`（二维码 token）→ App 扫码 → 轮询 `tmauthchecktoken` 拿 `pt_key`/`pt_pin`
-- 签到：`POST api.m.jd.com/client.action` `functionId=signBeanIndex&appid=ld`（UA `JD4iPhone/...`）；`status:1` = 成功取 `dailyAward/continuityAward.beanAward.beanCount`，含"已签到" = 幂等跳过
-- 风控：返回"跳转至拼图" = 触发图形验证；`S101/S109 人数较多` = 限流可稍后重试；`code:3` = pt_key 失效，需重新扫码
-- 已验证到扫码步骤（`errcode:176 授权登录未确认` 是正常的"等待扫码"状态），扫码后即可闭环
+**签名（h5st）是自己逆向还原的，未用任何第三方仓库实现**：
+- 页面 `global.js`（gzip 伪装）解出 `window.MYBEAN` → APPID `73c2f` → 签到主包 `index-legacy-BldL61M_.js`
+- 该包内请求构造器：`u={appid:"asset-h5",clientVersion:"1.0.0",client:"pc",t:Date.now(),body:window.SHA256(JSON.stringify(业务体)),functionId}` → `window.PSign.sign(u)`
+- `PSign` = 页面里 `new ParamsSign({appId:'73c2f',...})`，签名器本体是 `js_security_v3_0.1.4.js`（gzip 78KB → 235KB，`_4vve5` XOR-5 字符串层 + 三层字节码 VM）
+- **实现方式**：不重写算法，直接在下发的官方签名器外套一层 Node 沙箱 + 最小 DOM shim（`_jd_node_harness.js`）运行它，输出与浏览器逐位同构（10 段分号 h5st）
+- 三件套参数全部由本地 cookie 构造：`uuid`=`__jda` 第二段、`area`=`ipLoc-djd`（`-`→`_`）、`x-api-eid-token`=cookie `3AB9D23F7A4B3CSS`（本身就是 `jdd03...` 开头）
+- ⚠️ Node 沙箱坑：**不要把 JS 内置对象（Object/Array/RegExp/Date...）传进 vm context**，否则 vm realm 的正则字面量与外部 `RegExp.$1` 错位，h5st 首段时间戳会退化成字面量 `yyyy`
+
+- 失效判定：`{"code":"3"}` = 请先登录 → 标注【京东登录失效】，去浏览器重新登录 jd.com 即可（下次运行自动读新 cookie）
+- 幂等：`errCode:302 任务已完成`；已签判定 = `assignment.completionFlag` / `signDetail.status==2` / 今日日期在 `signList`
 
 ---
 
@@ -151,7 +162,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
-- 京东京豆：每日京豆签到（`jd_signin.py`，+N 京豆/日 + 连签加成；pt_key/pt_pin 由 `jd_login.py` 扫码登录获得，约 90 天有效；幂等，已签跳过）
+- 京东京豆：每日京豆签到（`jd_web_signin.py`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）
 
 ---
 
@@ -167,8 +178,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 美团跨券墙 fetch 返回 `subcode:12 活动太火爆` | 风控：未带 info 接口下发的 `ta.uuid`/`iuuid` cookie | 已修复——脚本用 cookie jar 先 info 收 cookie 再 fetch；若仍失败说明该活动风控更严或该账号被限 |
 | 南航营销签到 `S0023 奖品状态不正确` | 历史过期活动的残留记录 | 忽略（脚本已标跳过） |
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
-| 京东签到返回 `DG-9999 系统异常` | 用的是**浏览器 PC 登录态**（thor/pin/flash），京豆签到服务只认 App 端 `pt_key` | 跑 `jd_login.py` 扫码登录换 pt_key；浏览器登录态无论多新都无法签到（实测 `flash` cookie 单独就能触发同样的 DG-9999，并非登录态校验失败而是服务端拒绝该会话类型） |
-| 京东签到 `code:3 用户未登录` | pt_key 失效（约 90 天）或配置为空 | 重新跑 `jd_login.py` 扫码 |
+| 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
+| 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -233,10 +244,11 @@ python scripts/c189_signin.py auto                    # 签到 + 容量变化播
 python scripts/c189_signin.py status                  # 只读：容量/登录态
 python scripts/c189_signin.py init "<整行cookie或SSON值>"   # 落盘凭证并立即校验
 
-# 京东京豆：每日签到（pt_key/pt_pin 由扫码登录获得）
-python scripts/jd_signin.py auto                      # 签到 + JSON 结果（定时任务用这个）
-python scripts/jd_signin.py check                     # 验证 pt_key 是否有效
-python scripts/jd_login.py                            # 扫码登录生成 jd_qr.png，成功写 jd_config.json
+# 京东京豆（Web 端，浏览器 PC 登录态，脚本自动提取 cookie）
+python scripts/jd_web_signin.py cookie                # 手动重提取浏览器京东 cookie → jd_web_config.json
+python scripts/jd_web_signin.py auto                  # 查询→未签到则签到 + JSON 结果（定时任务用这个）
+python scripts/jd_web_signin.py status                # 只读：今日是否已签/连签天数
+python scripts/jd_web_signin.py sign                  # 强制签到（调试用）
 
 # 凭证同步：魔搭/小浣熊/Loomy 三家轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 python scripts/cookie_sync.py                          # 全部三家
