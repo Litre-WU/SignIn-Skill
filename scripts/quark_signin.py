@@ -239,6 +239,23 @@ def cmd_init(arg):
     return 0
 
 
+def has_campaign(info_data):
+    """growth/info 的 data 里是否有「签到领空间」活动。空 data = 没挂活动 = 不发放。"""
+    return bool(info_data)
+
+
+def growth_info(cookie):
+    """GET growth/info。返回 (http_code, data_dict, raw)。
+    ★2026-10-13 实测：本账号（SUPER_VIP / PC 会话）该端点 **data 恒为 {}**，
+      即服务端没有给这个账号挂「签到领空间」活动（cap_sign）→ 签到不会发放空间。
+      成功发放时 data 应含 cap_sign.sign_daily_reward / sign_progress / sign_target。
+    """
+    code, j, raw = api("/capacity/growth/info", cookie, None, "GET")
+    if j is None:
+        return code, {}, raw
+    return code, (j.get("data") or {}), raw
+
+
 def cmd_status():
     cfg = load_cfg()
     cookie, data, src = ensure_cookie(cfg)
@@ -249,8 +266,17 @@ def cmd_status():
     print("凭证=%s  会员=%s" % (src, data.get("member_type")))
     print("累计签到奖励=%sMB  总容量=%sGB  已用=%sGB" %
           (mb(sign_reward(data)), gb(data.get("total_capacity")), gb(data.get("use_capacity"))))
+    _c, g, _r = growth_info(cookie)
+    if has_campaign(g):
+        cap = g.get("cap_sign") or {}
+        print("签到活动: 有（今日已签=%s 今日奖励=%sMB 进度=%s/%s）" %
+              (cap.get("sign_daily"), mb(cap.get("sign_daily_reward")),
+               cap.get("sign_progress"), cap.get("sign_target")))
+    else:
+        print("签到活动: 【无活动数据】服务端未给该账号挂「签到领空间」活动"
+              "（growth/info 的 data 恒为 {}），PC 端签到不发放空间")
     if st.get("last_day"):
-        print("上次签到: %s（当日奖励+%sMB）" % (st.get("last_day"), st.get("last_delta_mb")))
+        print("上次入账: %s（当日奖励+%sMB）" % (st.get("last_day"), st.get("last_delta_mb")))
     return 0
 
 
@@ -312,6 +338,10 @@ def cmd_auto():
                    "last_run": time.strftime("%Y-%m-%d %H:%M:%S")})
         save_state(st)
 
+    # ★关键判别：该账号到底有没有「签到领空间」活动（2026-10-13 定案）
+    _ic, g, _ir = growth_info(cookie)
+    campaign = has_campaign(g)
+
     out = {
         "ok": True,
         "platform": "夸克网盘",
@@ -322,6 +352,7 @@ def cmd_auto():
         "reward_delta_mb": mb(delta) if delta is not None else None,
         "sign_reward_total_mb": mb(after),
         "total_capacity_gb": gb(data2.get("total_capacity") if ok2 else data.get("total_capacity")),
+        "has_campaign": campaign,
     }
     print(json.dumps(out, ensure_ascii=False))
 
@@ -330,6 +361,15 @@ def cmd_auto():
               (mb(delta), mb(after), out["total_capacity_gb"]))
     elif st.get("last_day") == today:
         print("[ok] 夸克网盘 今日已签（幂等，本次无新增）｜累计签到奖励 %sMB" % mb(after))
+    elif not campaign:
+        print("[ok] 夸克网盘 签到接口已执行（服务端 code=0，幂等）｜"
+              "【夸克签到无活动数据】该账号在当前 PC 端接口下没有「签到领空间」活动"
+              "（growth/info 的 data 恒为 {}，累计签到奖励停在 %sMB 不变），"
+              "接口虽返回 code=0 但不发放空间" % mb(after))
+        print("     说明：公开资料显示 PC 端签到接口已停止发放，移动端需 kps/sign/vcode 三参数；"
+              "本账号为 %s 且 cookie 是 PC 会话（fr=android 会 401）。"
+              "需你在夸克 App 内手动签到一次确认是否发放；若发放，抓一条移动端请求我再适配。"
+              % data.get("member_type"))
     else:
         print("[ok] 夸克网盘 签到接口已执行（服务端 code=0），但签到奖励无增量："
               "累计 %sMB（可能今日已签/当日奖励已达上限）" % mb(after))

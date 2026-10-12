@@ -180,6 +180,9 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 签到：`POST https://drive-m.quark.cn/1/clouddrive/capacity/growth/sign?pr=ucpro&fr=pc&uc_param_str=` body `{"sign_cyclic":true}`
 - 状态：`GET .../capacity/growth/info` ★**实测 `data` 恒为 `{}`**，服务端不返回明细，**不能用来判断"今天签没签"**
 - ★★**入账判据**：`GET .../member` 的 `data.extend_capacity_composition.sign_reward`（签到累计奖励字节数）。**签到前后各查一次取增量**——增量 >0 = 今日签到成功并发放了空间；=0 = 今日已签（幂等）或当日无奖励。与天翼189「容量前后差」同一思路
+- ★★★**2026-10-13 定案：本账号（SUPER_VIP + PC 会话）`growth/info` 的 `data` 恒为 `{}`** —— 服务端**没给该账号挂「签到领空间」活动**，所以签到接口虽返回 code=0、也确实鉴权通过，但**不发放任何空间**（`sign_reward` 停在 300MB 一动不动）。判据：成功发放时 `data` 应含 `cap_sign.sign_daily_reward` / `sign_progress` / `sign_target`。脚本已自动识别并标注【夸克签到无活动数据】，不算失效
+  - 公开资料佐证：PC 端签到接口已停止发放，移动端需 `kps`/`sign`/`vcode` 三参数（来自 App 抓包，或请求头 `x-u-kps-wg`/`x-u-sign-wg`/`x-u-vcode`）；★`fr=android` 配 PC cookie 会直接 401（cookie 绑定 PC 会话），换 fr 无用
+  - 想真正拿到空间：在**夸克 App** 里手动签到一次确认是否发放；若发放，抓一条移动端请求（含那三个参数）发我来适配
 - ★★**鉴权判据**：不带 cookie 时接口回 HTTP 401 `{"code":31001,"message":"require login [guest]"}`，带 cookie 回 200 `code:0`。**别只看 200**——要用这个 401 对照来确认 cookie 真的有效
 - 凭证寿命：cookie 会随服务端轮换，`cookie_sync.py` 已纳入夸克（第 0 步自动刷新）；Cookies 库被浏览器独占锁时，回退 TEMP 整库缓存（含别的平台留下的副本）
 - 失效表现：连续报 `require login` → 标注【夸克登录失效】，浏览器重新登录或 `quark_signin.py init '<整行Cookie>'`
@@ -243,6 +246,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
 | 京东互动中心 `code:3` 请先登录 | 浏览器京东登录态失效/被轮换 | 同签到：Thorium 重新登录 jd.com，下次运行自动读新 cookie |
 | 夸克签到「接口已执行但无增量」(`reward_delta_mb=0`) | 服务端 `data` 恒为 `{}`，只有 `sign_reward` 增量能证明确实发放；增量 0 多为**今日已签**（幂等）或当日奖励已达上限 | 正常；次日首跑应见 +增量。若连日 0 且 `last_day` 没更新，跑 `quark_signin.py probe` 看三个端点原始响应 |
+| 夸克标【夸克签到无活动数据】(`has_campaign=false`) | ★2026-10-13 定案：该账号（SUPER_VIP + PC 会话）服务端**没挂「签到领空间」活动**，`growth/info` 的 `data` 恒为 `{}`，接口返 code=0 但**不发放空间**（`sign_reward` 停在 300MB 不变） | 不算失效。想真拿空间：在夸克 App 内手动签到一次确认是否发放；若发放，抓一条含 `kps`/`sign`/`vcode` 的移动端请求发我适配（PC cookie 用 `fr=android` 会 401，换 fr 无用） |
 | 夸克报 `require login` / 401 code 31001 | cookie 被服务端轮换或不含 `__pus` | 浏览器重登 pan.quark.cn，或 `quark_signin.py init '<整行Cookie>'`；总控第 0 步 `cookie_sync.py` 会自动刷新 |
 | 夸克 cookie 提取不到（Cookies 库被锁） | 浏览器运行中持有独占锁 | 已内置 TEMP 整库缓存回退（`_wb_ck_*.db` / `_jd_ck.db`，按新鲜度）；仍失败就用已存 `quark_config.json` |
 | 阿里云盘取不到 token | 浏览器 Local Storage 里没有（未登录/换 profile） | 浏览器登录 www.aliyundrive.com 后跑 `aliyun_signin.py probe`；或 `init <32位refresh_token>` 手动兜底 |
