@@ -168,6 +168,10 @@ python scripts/csair_signin.py status
 python scripts/csair_signin.py doctor    # 凭证探活（sessionId / H5 signToken 逐一检查）
 
 
+# 利宝推荐有礼（转介绍活动，复用 libao_config.json，非每日必做，可随时查进度/尝试领取）
+python scripts/libao_referral.py status   # 身份+活码+奖励余额+9里程碑进度表
+python scripts/libao_referral.py auto     # 同步战绩 + 尝试领取全部达标里程碑
+
 ```
 
 挂定时任务（如每天 08:30 依次跑四条），脚本自带幂等，当天完成后自动跳过；删除对应 `*_state.json` 可重跑。
