@@ -17,7 +17,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | WorkBuddy 积分 | `scripts/wb_score.py` | Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
-| Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属，一次性；自动读本机登录态 token 头鉴权，换号=桌面端重登一次再跑 run） | Python 标准库 |
+| Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -103,7 +103,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 纯 Cookie 鉴权（讯飞统一登录，无独立续期接口）。抓取方法：浏览器登录 Loomy → F12 → Network → 任意一条 `/api/` 请求 → **复制整行 Cookie 请求头**发我，我用 `init` 落盘。cookie 失效回 401 时汇总会标注【Loomy失效】，重抓一条即可。
 
-**桌面端（Electron 客户端，账号体系独立）**：`scripts/loomy_desktop_tasks.py` 完成新手任务（8 项共 10000 分，客户端专属，web 端无此任务接口）。登录态自动从本机 `<本机路径>` 读取（`token` 头鉴权，32 位讯飞 passport session，与 web cookie 不同载体、无需配置）。**每个账号需在桌面端登录一次后跑 `run` 领取**（换号=桌面端重登，脚本自动识别）；session 寿命 14 天固定无续期。生产接口 host 固定 `loomyad.xunfei.cn`（客户端本机残留测试地址会全程 100002，脚本已规避）。用法：`status` 查进度 / `run` 补齐未完成项（服务端幂等）。2026-10-12 两个账号均已满额。
+**桌面端（Electron 客户端，账号体系独立）**：`scripts/loomy_desktop_tasks.py` 完成新手任务（8 项共 10000 分，客户端专属，web 端无此任务接口）。登录态自动从本机 `<本机路径>` 读取（`token` 头鉴权，32 位讯飞 passport session，与 web cookie 不同载体、无需配置）。**每个账号需在桌面端登录一次后跑 `run` 领取**（换号=桌面端重登，脚本自动识别）；session 寿命 14 天固定无续期。生产接口 host 固定 `loomyad.xunfei.cn`（客户端本机残留测试地址会全程 100002，脚本已规避）。用法：`status` 查进度 / `run` 补齐未完成项（服务端幂等）。2026-10-12 两个账号均已满额。**已纳入每日总控任务第【12】步**：每天跑 `run` 做「检测+未完成自动补齐」——满额时零副作用跳过，服务端新增任务或换登录账号时自动跟进入账；100002（约每 14 天 session 到期）标注【Loomy桌面登录失效】提醒在桌面端重登一次即恢复。
 
 ---
 
@@ -125,7 +125,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 魔搭：登录魔粒 +250（会话副作用，访问首页自动入账）+ 点赞刷分 +40（star/unstar 循环 20 次）
 - WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
-- Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端另有一条**独立账号**的新手任务线（`loomy_desktop_tasks.py`，一次性 8 项共 10000 分，2026-10-12 已满额完成，不进每日任务，可随时 `status` 复查）
+- Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 
 ---
 
