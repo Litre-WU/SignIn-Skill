@@ -1,11 +1,11 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团福利社每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十一个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。
+整合十二个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -20,6 +20,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
 | Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
+| 京东京豆 | `scripts/jd_signin.py` | 每日京豆签到（`signBeanIndex`，+N 京豆/日，连签有加成；幂等，已签跳过） | Python 标准库 + `qrcode`（登录用） |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期 | Python + websocket-client + Thorium CDP |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -117,6 +118,19 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
+### 6) 京东京豆
+
+**必须扫码登录一次**（不能抓包代劳）：京东把京豆签到接口的鉴权绑定在 **App 端会话 `pt_key`/`pt_pin`** 上，电脑浏览器登录（`thor`/`pin`/`flash` 那套）**不被签到服务接受**（实测返回 `DG-9999 系统异常`，且伪造 pt_key 立刻回 `code:3 用户未登录`）。`pt_key` 只能通过京东 App 扫码授权获得。
+
+**操作**：跟我说"京东扫码"，我跑 `jd_login.py` 生成二维码，你用**京东 App**（首页右上角 + → 扫一扫）扫一下授权，脚本自动换出 `pt_key`/`pt_pin` 存进 `jd_config.json`（有效期约 90 天）。之后每日签到全自动。
+
+- 链路：`new_login_entrance`（s_token）→ `tmauthreflogurl`（二维码 token）→ App 扫码 → 轮询 `tmauthchecktoken` 拿 `pt_key`/`pt_pin`
+- 签到：`POST api.m.jd.com/client.action` `functionId=signBeanIndex&appid=ld`（UA `JD4iPhone/...`）；`status:1` = 成功取 `dailyAward/continuityAward.beanAward.beanCount`，含"已签到" = 幂等跳过
+- 风控：返回"跳转至拼图" = 触发图形验证；`S101/S109 人数较多` = 限流可稍后重试；`code:3` = pt_key 失效，需重新扫码
+- 已验证到扫码步骤（`errcode:176 授权登录未确认` 是正常的"等待扫码"状态），扫码后即可闭环
+
+---
+
 ## 二、我来自动完成
 
 收到你的整条请求后，我会：
@@ -137,6 +151,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
+- 京东京豆：每日京豆签到（`jd_signin.py`，+N 京豆/日 + 连签加成；pt_key/pt_pin 由 `jd_login.py` 扫码登录获得，约 90 天有效；幂等，已签跳过）
 
 ---
 
@@ -152,6 +167,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 美团跨券墙 fetch 返回 `subcode:12 活动太火爆` | 风控：未带 info 接口下发的 `ta.uuid`/`iuuid` cookie | 已修复——脚本用 cookie jar 先 info 收 cookie 再 fetch；若仍失败说明该活动风控更严或该账号被限 |
 | 南航营销签到 `S0023 奖品状态不正确` | 历史过期活动的残留记录 | 忽略（脚本已标跳过） |
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
+| 京东签到返回 `DG-9999 系统异常` | 用的是**浏览器 PC 登录态**（thor/pin/flash），京豆签到服务只认 App 端 `pt_key` | 跑 `jd_login.py` 扫码登录换 pt_key；浏览器登录态无论多新都无法签到（实测 `flash` cookie 单独就能触发同样的 DG-9999，并非登录态校验失败而是服务端拒绝该会话类型） |
+| 京东签到 `code:3 用户未登录` | pt_key 失效（约 90 天）或配置为空 | 重新跑 `jd_login.py` 扫码 |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -215,6 +232,11 @@ python scripts/loomy_desktop_tasks.py probe           # 只测连通/鉴权
 python scripts/c189_signin.py auto                    # 签到 + 容量变化播报（定时任务用这个）
 python scripts/c189_signin.py status                  # 只读：容量/登录态
 python scripts/c189_signin.py init "<整行cookie或SSON值>"   # 落盘凭证并立即校验
+
+# 京东京豆：每日签到（pt_key/pt_pin 由扫码登录获得）
+python scripts/jd_signin.py auto                      # 签到 + JSON 结果（定时任务用这个）
+python scripts/jd_signin.py check                     # 验证 pt_key 是否有效
+python scripts/jd_login.py                            # 扫码登录生成 jd_qr.png，成功写 jd_config.json
 
 # 凭证同步：魔搭/小浣熊/Loomy 三家轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 python scripts/cookie_sync.py                          # 全部三家
