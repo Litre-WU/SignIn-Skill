@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 17 个稳定入口：**
+**本仓库收录 16 个稳定入口：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -21,7 +21,6 @@
 | 阿里云盘 | `scripts/aliyun_signin.py` | 每日签到；凭证从浏览器 Local Storage 实时读取，**无需抓包、无需关浏览器** |
 | 美团答题领现金 | `scripts/mt_answer.py` | 七日签到奖励 + 每日任务奖励自动领取（MGC Pike WebSocket 协议纯 Python 重放，无需浏览器） |
 | 小米商城米金 | `scripts/xm_mijin.py` | 米金签到 +15/日（每日 5 + 连签奖励 10）+ 浏览任务各 +5；venue/page(v1) 拉任务清单，infinite do→done 完成，幂等判据 code:200001 |
-| _mishop_client.py | `scripts/_mishop_client.py` |  |
 | 有品每日签到（红包） | `scripts/yp_rpsign.py` | 全年活动（2026-01~12）：每日随机红包（实测 0.24 元/日）、7 天连签第 7 天 5 元；先 getActInfo 判 signUserInfo.sign 再点击（已签到重复提交会返 500） |
 
 ## 安装
@@ -86,6 +85,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 ## 辅助脚本 / 离线单测
 
 - `browser_cookies.py` — 浏览器 Cookie 提取库：绕 Chromium 独占锁读取并解密 cookie；跨平台 TEMP 整库缓存复用
+- `_mishop_client.py` — 小米商城 mtop 客户端库：MiShop 设备头/服务Token/请求封装（xm_mijin.py 的依赖，凭证优先读 xm_mijin_config.json）
 
 
 ## 安全声明
