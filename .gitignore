@@ -4,6 +4,7 @@
 *_state.json
 *.log
 *_resp.json
+run_all_bench.json
 __pycache__/
 accounts/
 gr_cred.sh

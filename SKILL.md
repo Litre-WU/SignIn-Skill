@@ -23,6 +23,7 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
 | 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期。阿里云盘不走 cookie（走 Local Storage），不在此列 | Python + websocket-client + Thorium CDP |
+| **并发编排器（一键全平台）** | `scripts/run_all.py` | ★把全部平台任务按依赖关系（DAG）并发编排：12 个独立平台与 cookie_sync 同时跑，仅魔搭/小浣熊/Loomy 等同步完成；京东链内串行防 WAF、命中 waf_blocked/login_expired 自动断掉后续只读步；9222 离线时编排器预拉起 headless 浏览器、收尾精准回收（不误杀用户窗口）。**实测串行 117s → 并发 33s（约 3.5x）**。`--dry` 看编排图、`--serial` 跑基线、`--backend thread/async/process` 选并发方式（默认 thread） | Python 标准库（+psutil 可选：内存采样/精准关浏览器） |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -193,6 +194,27 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 4. 确认通过后按你的要求挂上 WorkBuddy 定时任务（如每天清晨自动执行）。
 
 脚本自带幂等：当天已完成会自动跳过，删除对应 `*_state.json` 可重跑。
+
+> **★全平台执行请用 `run_all.py`（并发编排，2026-10-13 建成）**：以前 15 个平台是「一步一步串行等」，总耗时 ≈ 各平台之和（实测 117s）。现在改为**依赖图（DAG）并发**：真正需要等凭证同步的只有魔搭/小浣熊/Loomy 三家，其余 12 家与 `cookie_sync` **同时启动**，墙钟 = 最长单任务（掘金 23s / 京东链 22s），实测 **32~33s，约 3.5x**。
+>
+> 三种并发方式的实测对比（同一任务图、workers=10）：
+>
+> | 方式 | 墙钟 | 峰值内存 | 结论 |
+> |---|---|---|---|
+> | 串行基线 | 116.7s | ~2.0 GB | 优化前形态 |
+> | **线程池（默认）** | **32.6s** | **2.43 GB** | ★**最优**：等待子进程时 GIL 已释放，真并发；编排代码最短、失败隔离好 |
+> | 协程 asyncio | 32.5s | 2.51 GB | 与线程池持平（瓶颈在子进程，不在编排层），代码复杂度最高 |
+> | 进程池 | 61.6s(w6) | 2.34 GB | **不推荐**：worker 只是「等子进程」，多一层解释器纯属浪费，DAG 还要处理对象可 pickle |
+>
+> 关键结论：任务是 **I/O 型子进程**，并发收益 100% 来自「不要串行等」，而**不是**来自进程/协程本身的特性——所以选**改动最小、最好维护的线程池**即可；再往上加速只能削单任务耗时（如掘金 23s 的 CDP 页面等待、京东 h5st 签名），换后端没有边际收益。
+>
+> 内置的并发安全约束（不是「无脑并行」）：
+> - **京东三步链内串行**：同 host 的 WAF 按端点频率限流，并发轰炸只会自找 403；命中 `waf_blocked`/`login_expired` 自动**断掉链内后续只读步**（省 10s）。
+> - **WorkBuddy 签到→成长中心**链内串行（同一凭证域）。
+> - **浏览器**：9222 离线时由编排器**预拉起** headless Thorium（带掘金页），`cookie_sync` 自动改 `keep` 模式不再自己起/关；收尾按 `--headless` 特征**精准回收进程树**——绝不再 `taskkill //IM thorium.exe`（那会误杀你自己开着的浏览器）。
+> - 美团三脚本共享 `mt_config.json` **只读**、各写独立 state，可并行。
+>
+> `python scripts/run_all.py --dry` 打印编排图；`--serial` 跑串行基线；`--backend async|process` 可复现上面这张表。机器可读结果落 `run_all_bench.json`。
 
 > **凭证会自己失效怎么办？** 魔搭 / 小浣熊 / Loomy 这三家的凭证**不是自然过期，而是服务端轮换**——浏览器每次访问站点都会自动拿到新凭证，脚本存的却是静态快照，所以过一阵必然失效（典型表现：401 / 400 params_invalid_error）。已内置 `cookie_sync.py`：从浏览器读取最新 cookie 写回配置，浏览器没开就自动拉起访问三个站点触发续期，用完自动关闭。**每日任务第 0 步自动执行**，你也可以随时手动跑一次。诊断用 `cookie_probe.py`（对比浏览器值与配置值、显示过期属性）。
 
