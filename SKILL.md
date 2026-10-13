@@ -31,20 +31,7 @@ description:美团惠省小程序首页红包墙每日领券+营销页红包+分
 
 > 准备：电脑/手机微信挂 **Reqable / mitmproxy / Charles** 代理，正常打开对应小程序操作一次，把下面这条请求「整条复制」（抓包工具里选该请求 → 复制 Request）发给我即可。
 
-### 1) GR（丰田 GR）
-
-打开微信「TOYOTA GAZOO Racing」小程序 → 进入**品牌首页 → 签到**，抓这条请求：
-```
-POST https://www.toyotagazooracing-online.com.cn:8834/app/GRApi/user/acquisition
-```
-**发给我整条请求**（URL + 请求头 + 请求体 + 首段响应摘要）。
-
-> 若想要长期自动续期，会再配一条 OAuth 刷新（可选）：把下面这条也发我即可：
-> `POST https://www.toyotagazooracing-online.com.cn/auth/oauth2/token`
-
----
-
-### 2) 美团福利社
+### 1) 美团福利社
 
 电脑微信打开「美团小程序 → 福利社」，点一下**领券/待领取**，抓这条请求：
 ```
@@ -72,7 +59,7 @@ https://media.meituan.com/fulishemini/couponActivity/listActivityCoupon...
 
 ---
 
-### 3) 南航
+### 2) 南航
 
 微信打开「中国南方航空」小程序，随便触发一次登录，抓这条请求：
 ```
@@ -108,33 +95,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
-### 4) 利宝保险
-
-微信打开「利宝保险」小程序 → 进入**首页**（会加载文章流），或「我的」页，抓任意一条带 `authorization` 请求头的业务请求：
-```
-POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationUserInfo
-```
-**发给我整条请求**（URL + 请求头 + 请求体）。authorization 是 JWT（`Bearer eyJ...`），有效期约 30 天，响应头会自动轮换。
-
-> 每日自动领取 **3 篇阅读文章积分**（每篇 +20），按当日已完成列表幂等，领满自动跳过。
-> 另有**做任务领积分**（`receive` 接口，成功同时赠送抽奖机会）与**每日抽奖**（每天 1 次，机会由任务赠送）。
-
----
-
-### 5) 掘金
-
-与前面几个小程序不同：掘金是**网页端**，不需要抓包。只要你电脑上 **Thorium 浏览器登录着掘金**（任意掘金页面，如 `juejin.cn/user/center/signin`）即可——脚本通过浏览器的 9222 调试端口直接在页面里发请求，cookie 自动携带。
-
-> 每日自动完成：**签到**（+1 矿石，已签则跳过）+ **免费抽奖 1 次**（签到后赠送，只抽免费的；免费次数用尽则跳过，**绝不消耗矿石**）+ **掘友分任务**（点赞文章×2、点赞沸点×2、关注掘友×2、浏览文章×5，全部读 task_list 剩余次数幂等执行）。
-> 抽奖规则：幸运值满 6000 必出转盘内实物奖励（苹果耳机 / Switch / 盲盒等）。
->
-> **签到与抽奖必须走页面上下文**：掘金把 `check_in` / `lottery/draw` 列入 bdms 风控签名路径，纯 Python 请求会被 Tengine 拦截（返回 200 空 body），只有在浏览器页面里 fetch 才带签名。掘友分任务接口（digg/follow/task_list）无此限制。
->
-> **验证码中间页全自动求解**：风控升级时页面会被替换为"验证码中间页"（内嵌字节跳动滑块 `rmc.bytedance.com/verifycenter`）。`jj_captcha.py` 模块自动完成全流程——抓取 iframe 内背景/拼图图片 → FFT-NCC 全二维定位缺口（块是背景的抠图，最佳匹配处即缺口）→ 自然坐标换算为页面坐标 → `Input.dispatchMouseEvent` 人类化拖动（缓动+抖动+微停顿）→ 判定通过/失败，失败间隔重试 5 次（避开 `[5014]` 操作过快频率检测）。无需人工介入；若 5 次仍未通过才报【掘金验证码失效】。
-
----
-
-### 6) 办公小浣熊（商汤 xiaohuanxiong.com）
+### 3) 办公小浣熊（商汤 xiaohuanxiong.com）
 
 **没有手动签到/领取接口**——个人免费版每日送 300 积分是"会话活跃自动入账"，脚本每天访问一次积分余额接口即触发/确认发放。
 
@@ -146,7 +107,7 @@ POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationU
 
 ---
 
-### 7) Loomy（讯飞 loomy.xunfei.cn）
+### 4) Loomy（讯飞 loomy.xunfei.cn）
 
 同样**没有签到/领取接口**——每日赠送积分随站点活跃自动入账，脚本每天查一次积分即确认。
 
@@ -154,7 +115,7 @@ POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationU
 
 **桌面端（Electron 客户端，账号体系独立）**：`scripts/loomy_desktop_tasks.py` 完成新手任务（8 项共 10000 分，客户端专属，web 端无此任务接口）。登录态自动从本机 `<本机路径>` 读取（`token` 头鉴权，32 位讯飞 passport session，与 web cookie 不同载体、无需配置）。**每个账号需在桌面端登录一次后跑 `run` 领取**（换号=桌面端重登，脚本自动识别）；session 寿命 14 天固定无续期。生产接口 host 固定 `loomyad.xunfei.cn`（客户端本机残留测试地址会全程 100002，脚本已规避）。用法：`status` 查进度 / `run` 补齐未完成项（服务端幂等）。2026-10-12 两个账号均已满额。**已纳入每日总控任务第【12】步**：每天跑 `run` 做「检测+未完成自动补齐」——满额时零副作用跳过，服务端新增任务或换登录账号时自动跟进入账；100002（约每 14 天 session 到期）标注【Loomy桌面登录失效】提醒在桌面端重登一次即恢复。
 
-### 8) 天翼云盘（cloud.189.cn）
+### 5) 天翼云盘（cloud.189.cn）
 
 浏览器登录 [cloud.189.cn](https://cloud.189.cn) 后，把**任意一条 cloud.189.cn 请求的整行 Cookie** 发我（或直接告诉我"浏览器已登录天翼189"，我用 CDP 自动抓，无需手抓）。核心凭证是 `SSON`（httpOnly 单点登录 cookie），脚本链路：`SSON → unifyLoginForPC（收服务端会话 cookie）→ POST api.cloud.189.cn/getSessionForPC.action 换 sessionKey/accessToken/refreshToken → GET /mkt/userSign.action?sessionKey=...` 签到领随机空间。
 
@@ -164,7 +125,7 @@ POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationU
 
 ---
 
-### 9) 京东京豆（Web 端，2026-10-12 自行逆向）
+### 6) 京东京豆（Web 端，2026-10-12 自行逆向）
 
 **无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
 脚本每次运行都从浏览器磁盘 Cookies 库**实时提取最新 cookie**，所以只要浏览器里京东是登录态，签到就全自动。
@@ -251,7 +212,7 @@ POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationU
 
 | 现象 | 原因 | 处理 |
 |---|---|---|
-| 南航 `invalid session` / 业务失败 | 凭证过期 | 南航：先跑 `csair_signin.py doctor` 探活；sessionId 只能由小程序内 `wx.login` 换取（无服务端刷新接口），抓 `/mini/api/login/login` **响应体**发我用 `refresh` 更新；GR：重抓签到请求发我重建 |
+| 南航 `invalid session` / 业务失败 | 凭证过期 | 南航：先跑 `csair_signin.py doctor` 探活；sessionId 只能由小程序内 `wx.login` 换取（无服务端刷新接口），抓 `/mini/api/login/login` **响应体**发我用 `refresh` 更新 |
 | 美团 `mtgsig` 失败/被风控 | 抓包设备版本与脚本不符、Node 未装 | 设 `MT_NODE`；把抓包整条发我适配 |
 | 美团 H5 页"未登录" | wm_logintoken 过期 | 重抓一条 `listActivityCoupon` 发我，H5 脚本与主领券共用同一 token |
 | 美团限时抢总提示"活动太火爆" | 该场次库存=0（秒杀券库存个位数，被别人抢了）或当日已领（subCode 9017） | 属正常，脚本每日新场次自动重试；想抢到需在场次开始（10:00/11:00/17:00）第一时间跑 |
