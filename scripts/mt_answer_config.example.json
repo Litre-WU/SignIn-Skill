@@ -3,7 +3,5 @@
   "userId": "<你的userId>",
   "uuid": "<你的uuid>",
   "appId": "<你的appId>",
-  "inner_source": "<你的inner_source>",
-  "_note": "<你的_note>",
-  "_imported_at": "<你的_imported_at>"
+  "inner_source": "<你的inner_source>"
 }
