@@ -7,26 +7,20 @@ description: 一站式签到/领券综合工具，整合16个已抓包验证的�
 
 # 签到啦 · 一键签到/领券合集
 
-整合十六个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合十六个**已抓包验证**的自动化入口（16 个脚本，按「同一家企业产品合并」原则收敛为 13 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
 | 南航（中国南方航空小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 签到抽奖机会检测（抽奖消耗半自动） | Python 标准库（H5 重登需 Playwright） |
-| 美团券包（惠省小程序首页红包墙） | `scripts/mt_api_coupon.py` | 每日领券 + 营销页红包（可选）。★2026-10-12 起：列表体改 JSON、幂等改 **rightCode 级**（当天后出现的新批次也能领到）、新增 `probe`/`share` 子命令 | Python + Node（mtgsig 签名沙箱） |
-| 美团福利社 H5 活动页 | `scripts/mt_gundam_coupon.py` | 福利社 tab 的 gundam 活动页（"周末加码必得百元券包"）：跨券墙(百元券包主力) + 限时抢券 + 天降掉券，全自动发现活动 ID | Python + Node |
-| 美团分销会场 | `scripts/mt_union_coupon.py` | 「美团分销小程序」分销会场每日券包（list→grant 链路）+ 分销中心内嵌跨券墙，单日 ¥180+ | Python + Node（H5 签名） |
+| **美团系（4 项，总控链内串行）** | `scripts/mt_api_coupon.py`<br>`scripts/mt_gundam_coupon.py`<br>`scripts/mt_union_coupon.py`<br>`scripts/mt_answer.py` | ①红包墙每日领券+营销页红包（rightCode 级幂等）②福利社跨券墙+限时抢+天降掉券 ③分销会场券包+内嵌跨券墙（单日约 ¥180）④答题七日签到+每日任务现金（WebSocket 重放） | Python + Node（mtgsig/H5 签名沙箱） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
-| WorkBuddy 积分 | `scripts/wb_score.py` | Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
-| WorkBuddy 成长中心 | `scripts/wb_growth.py` | 补齐成长中心 6 项奖励：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒（先只读判有无资源→没有跳过、有就补齐，全幂等；凭证复用 totorosir 三通道，无需额外配置） | Python 标准库（复用 totorosir skill 取凭据） |
+| **WorkBuddy（2 项，链内串行）** | `scripts/wb_score.py`<br>`scripts/wb_growth.py` | ①Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天）②成长中心 6 项奖励补齐（盲盒/连登兑换/断登补签/接任务/领任务奖，全幂等） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
-| Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
-| Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
+| **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
-| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
+| 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
-| 美团答题领现金 | `scripts/mt_answer.py` | 七日签到奖励 + 每日任务奖励自动领取（MGC Pike WebSocket 协议纯 Python 重放，无需浏览器；服务端 type 是字符串须 int() 强转） | Python 标准库 |
-| 小米商城米金 | `scripts/xm_mijin.py` | 米金签到 +15/日（每日 5 + 连签奖励 10）+ 浏览任务各 +5；venue/page(v1) 拉任务清单 → infinite do→done 完成；幂等 code:200001「达到任务上限」 | Python 标准库 |
-| 有品每日签到（红包） | `scripts/yp_rpsign.py` | 全年活动（2026-01~12）：每日随机红包（实测 0.24 元/日）、7 天连签第 7 天 5 元；先 getActInfo 判 `signUserInfo.sign` 再点击（已签到重复提交会返 500 dubbo） | Python 标准库 |
+| **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -38,7 +32,7 @@ description: 一站式签到/领券综合工具，整合16个已抓包验证的�
 
 > 准备：电脑/手机微信挂 **Reqable / mitmproxy / Charles** 代理，正常打开对应小程序操作一次，把下面这条请求「整条复制」（抓包工具里选该请求 → 复制 Request）发给我即可。
 
-### 1) 美团福利社
+### 1) 美团福利社 H5 活动页（美团系）
 
 电脑微信打开「美团小程序 → 福利社」，点一下**领券/待领取**，抓这条请求：
 ```
@@ -114,7 +108,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
-### 4) Loomy（讯飞 loomy.xunfei.cn）
+### 4) Loomy（讯飞 loomy.xunfei.cn｜讯飞Loomy组）
 
 同样**没有签到/领取接口**——每日赠送积分随站点活跃自动入账，脚本每天查一次积分即确认。
 
@@ -188,7 +182,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★★`signInLogs` 判读坑：`calendarMonth` 是**中文**（`"十月"`）、`calendarDay` 是**字符串**（`"12"`）——直接 `int()` 会全军覆没；且"今天未签"也会出现在 logs 里（`status:"miss"`），必须同时排除 miss
 - 已知限制：领奖端点 `sign_in_reward` 被客户端版本门控返回 **403「请升级最新客户端访问」**。签到本身不受影响，仅在 `isReward=true` 时尝试；403 记为受限、不算失败
 
-### 11) 美团答题领现金（2026-10-13 建成）
+### 11) 美团答题领现金（美团系，2026-10-13 建成）
 
 抓包：美团答题活动任意 `/mtop/mf/act/infinite/*` 请求（Cookie 入 `mt_answer_config.json`）。
 
@@ -197,7 +191,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 鉴权签名 = `base64(md5(bizId+"browser"+random+SALT))`，SALT=`5d6db287-84b8-46a7-9bcf-14242de3c139`
 - 幂等判据 = **服务端 status**（0 未完成 / 1 待领 / 2 已领），不依赖本地标记
 
-### 12) 小米商城米金（2026-10-14 建成）
+### 12) 小米商城米金（小米系，2026-10-14 建成）
 
 抓包：小米商城 App 任意 `shop-api.retail.mi.com` 请求的 Cookie（serviceToken/userId/xmUuid，入 `xm_mijin_config.json`）。
 
@@ -206,7 +200,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 收益：米金签到 +15/日（每日 5 + 连签奖励 10）、浏览任务各 +5；type 211（下载/打开 App）无法纯脚本完成，跳过
 - 幂等：done 返 `code:200001「达到任务上限」`；过期 `code:200006「任务已结束」`
 
-### 13) 有品每日签到·红包签到（2026-10-14 建成）
+### 13) 有品每日签到·红包签到（小米系，2026-10-14 建成）
 
 抓包：有品 App「积分中心 → 每日签到」页（`hd/checkInsignIn`）任意请求的整行 Cookie（入 `yp_rpsign_config.json`）。
 
