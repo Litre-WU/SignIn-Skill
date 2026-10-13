@@ -2,12 +2,12 @@
 name: 签到啦
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合16个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合16个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十六**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合十六个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -24,6 +24,9 @@ description: 一站式签到/领券综合工具，整合16个已抓包验证的�
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
+| 美团答题领现金 | `scripts/mt_answer.py` | 七日签到奖励 + 每日任务奖励自动领取（MGC Pike WebSocket 协议纯 Python 重放，无需浏览器；服务端 type 是字符串须 int() 强转） | Python 标准库 |
+| 小米商城米金 | `scripts/xm_mijin.py` | 米金签到 +15/日（每日 5 + 连签奖励 10）+ 浏览任务各 +5；venue/page(v1) 拉任务清单 → infinite do→done 完成；幂等 code:200001「达到任务上限」 | Python 标准库 |
+| 有品每日签到（红包） | `scripts/yp_rpsign.py` | 全年活动（2026-01~12）：每日随机红包（实测 0.24 元/日）、7 天连签第 7 天 5 元；先 getActInfo 判 `signUserInfo.sign` 再点击（已签到重复提交会返 500 dubbo） | Python 标准库 |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -182,6 +185,33 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 链路：refresh_token → `POST auth.aliyundrive.com/v2/account/token`（`grant_type=refresh_token`）换 access_token（7200s）→ `POST member.aliyundrive.com/v1/activity/sign_in_list`（body `{"_rx-s":"mobile"}`，Bearer 鉴权）**兼做签到与查状态**
 - ★★`signInLogs` 判读坑：`calendarMonth` 是**中文**（`"十月"`）、`calendarDay` 是**字符串**（`"12"`）——直接 `int()` 会全军覆没；且"今天未签"也会出现在 logs 里（`status:"miss"`），必须同时排除 miss
 - 已知限制：领奖端点 `sign_in_reward` 被客户端版本门控返回 **403「请升级最新客户端访问」**。签到本身不受影响，仅在 `isReward=true` 时尝试；403 记为受限、不算失败
+
+### 11) 美团答题领现金（2026-10-13 建成）
+
+抓包：美团答题活动任意 `/mtop/mf/act/infinite/*` 请求（Cookie 入 `mt_answer_config.json`）。
+
+- ★协议：**MGC Pike WebSocket**（非 HTTP）——帧 `42["pike",{v,c,d}]`，d 双重 JSON 编码；响应 type = 请求 type-10000
+- ★服务端 type 是**字符串**，必须 `int()` 强转（直接比较会全军覆没）
+- 鉴权签名 = `base64(md5(bizId+"browser"+random+SALT))`，SALT=`5d6db287-84b8-46a7-9bcf-14242de3c139`
+- 幂等判据 = **服务端 status**（0 未完成 / 1 待领 / 2 已领），不依赖本地标记
+
+### 12) 小米商城米金（2026-10-14 建成）
+
+抓包：小米商城 App 任意 `shop-api.retail.mi.com` 请求的 Cookie（serviceToken/userId/xmUuid，入 `xm_mijin_config.json`）。
+
+- ★★米金页是 RN 页：`venue/v2/page` 对它**恒 404「apiInfo is null」**，必须用 **v1 `/mtop/navi/venue/page?page_id&pdl&sign`**；sign 从 `personalHome` 的 `miGoldRemindInfos.jumpUrl` 实时提取（不过期）
+- 任务链路：`POST /mtop/mf/act/infinite/do` body `[{},{actId,taskId}]` → taskToken → `POST /mtop/mf/act/infinite/done` body `[{},{taskToken,actId,taskType,extra}]` → `awardList` 真实入账
+- 收益：米金签到 +15/日（每日 5 + 连签奖励 10）、浏览任务各 +5；type 211（下载/打开 App）无法纯脚本完成，跳过
+- 幂等：done 返 `code:200001「达到任务上限」`；过期 `code:200006「任务已结束」`
+
+### 13) 有品每日签到·红包签到（2026-10-14 建成）
+
+抓包：有品 App「积分中心 → 每日签到」页（`hd/checkInsignIn`）任意请求的整行 Cookie（入 `yp_rpsign_config.json`）。
+
+- host=`m.xiaomiyoupin.com`；actId=`686b76a6ac546f0001b930c5`（**全年活动** 2026-01-05~12-31，奖池 1 万元剩 9678.89，7 天连签第 7 天 5 元）
+- ★★`clickSign` 对已签到返 `code:500「failed to get dubbo response」`（**非标准幂等文案**，曾误导判断为活动下线）→ 必须先 `getActInfo` 判 `signUserInfo.sign` 再决定点击
+- ★10-13「请登录」卡点根因 = **host 用错**：有品 App serviceToken 在 `m.xiaomiyoupin.com` 域直接 code 0（10-13 误试 shopapi.io.mi.com + passportapi token，双重错误）
+- 接口族：getActInfo / clickSign / getFetchRecord / shareOrLike / remind + `/mtop/coupon/redpacket/get_user_balance`（红包余额），body 均 `params:[{}, X]`
 
 ---
 

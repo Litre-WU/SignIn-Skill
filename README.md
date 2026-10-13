@@ -2,26 +2,20 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 16 个稳定入口：**
+**本仓库收录 10 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
-| 美团券包（惠省小程序首页红包墙） | `scripts/mt_api_coupon.py` | 每日领券；红包墙当天会刷新批次，按 rightCode 级幂等，新批次也能领到 |
-| 美团福利社 H5 | `scripts/mt_gundam_coupon.py` | 跨券墙 / 限时抢 / 天降掉券（福利社 tab 改版后入口可能下线，属服务端变更） |
-| 美团分销会场 | `scripts/mt_union_coupon.py` | 会场每日券包 + 分销中心内嵌跨券墙（单日约 ¥180） |
+| 美团系（4 项） | `scripts/mt_api_coupon.py`<br>`scripts/mt_gundam_coupon.py`<br>`scripts/mt_union_coupon.py`<br>`scripts/mt_answer.py` | 红包墙领券 + 福利社 + 分销会场 + 答题现金（总控合并为单一任务，链内串行） |
 | 南航（小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 抽奖机会检测（sessionId 需抓包 refresh） |
 | 魔搭 ModelScope | `scripts/ms_magicube.py` | 魔粒 +290/日（登录 250 + 点赞刷分 40） |
-| WorkBuddy 积分 | `scripts/wb_score.py` | 签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行 5~10 |
-| WorkBuddy 成长中心 | `scripts/wb_growth.py` | 盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 自动补齐 |
+| WorkBuddy（2 项） | `scripts/wb_score.py`<br>`scripts/wb_growth.py` | Buddy 加油站签到 + 派猫猫旅行 + 成长中心 6 项奖励自动补齐（同一凭证域，链内串行） |
 | 办公小浣熊（商汤） | `scripts/xhx_office_points.py` | 每日 300 积分确认（会话活跃自动入账，无手动签到接口） |
-| Loomy（讯飞） | `scripts/loomy_points.py` | 每日积分确认（活跃自动入账，纯 cookie 鉴权） |
-| Loomy 桌面端 | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（桌面客户端专属，自动读本机登录态） |
+| 讯飞Loomy（2 项） | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | Web 端积分 + 桌面端新手任务（总控合并为单一任务，链内串行） |
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到 + 天天抽奖（做任务赚机会 → 转盘抽奖） |
 | 阿里云盘 | `scripts/aliyun_signin.py` | 每日签到；凭证从浏览器 Local Storage 实时读取，**无需抓包、无需关浏览器** |
-| 美团答题领现金 | `scripts/mt_answer.py` | 七日签到奖励 + 每日任务奖励自动领取（MGC Pike WebSocket 协议纯 Python 重放，无需浏览器） |
-| 小米商城米金 | `scripts/xm_mijin.py` | 米金签到 +15/日（每日 5 + 连签奖励 10）+ 浏览任务各 +5；venue/page(v1) 拉任务清单，infinite do→done 完成，幂等判据 code:200001 |
-| 有品每日签到（红包） | `scripts/yp_rpsign.py` | 全年活动（2026-01~12）：每日随机红包（实测 0.24 元/日）、7 天连签第 7 天 5 元；先 getActInfo 判 signUserInfo.sign 再点击（已签到重复提交会返 500） |
+| 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
 
 ## 安装
 
