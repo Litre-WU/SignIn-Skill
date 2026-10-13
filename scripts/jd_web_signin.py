@@ -150,6 +150,28 @@ def _read_cookies_db(path):
     return best
 
 
+def _esentutl_copy(src, dst):
+    """用 esentutl 备份语义复制被 Chromium 独占锁(ERROR_SHARING_VIOLATION, err=32)的 Cookies 库。
+
+    CreateFileW(SHARE_ALL) 在新版 Chromium 上已稳定失败（进程持续持有句柄），
+    esentutl /y 走 ESE 备份 API，实测可 100% 复制出完整一致快照（2026-10-14 验证）。
+    """
+    import subprocess
+    try:
+        if os.path.isfile(dst):
+            try:
+                os.remove(dst)
+            except OSError:
+                pass
+        r = subprocess.run(["esentutl.exe", "/y", src, "/d", dst, "/o"],
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                           timeout=120)
+        return (r.returncode == 0 and os.path.isfile(dst)
+                and os.path.getsize(dst) > 0)
+    except Exception:
+        return False
+
+
 def _raw_read(ck_path):
     import ctypes
     import tempfile
@@ -165,7 +187,7 @@ def _raw_read(ck_path):
                              POINTER(wintypes.DWORD), wintypes.LPVOID]
     k32.CloseHandle.argtypes = [wintypes.HANDLE]
 
-    for attempt in range(26):                      # Chromium 独占锁，时紧时松，耐心重试
+    for attempt in range(8):                       # 先试共享读（快路径，约 10s）
         h = k32.CreateFileW(ck_path, 0x80000000, 0x00000007, None, 3, 0, None)
         if h and h != wintypes.HANDLE(-1).value:
             size = k32.GetFileSize(h, None)
@@ -174,15 +196,31 @@ def _raw_read(ck_path):
             k32.ReadFile(h, buf, size, byref(read), None)
             k32.CloseHandle(h)
             raw = bytes(buf[:read.value])
-            tmp = os.path.join(tempfile.gettempdir(), "_jd_ck.db")
-            try:                                    # 顺手刷新 TEMP 缓存
-                with open(tmp, "wb") as f:
-                    f.write(raw)
-            except OSError:
-                pass
+            _refresh_tmp_cache(raw)
             return raw
         time.sleep(1.2)
+
+    # 独占锁稳定持有（新版 Chromium 常态）→ esentutl 备份语义复制
+    snap = os.path.join(tempfile.gettempdir(), "_jd_ck_vss.db")
+    if _esentutl_copy(ck_path, snap):
+        try:
+            with open(snap, "rb") as f:
+                raw = f.read()
+            _refresh_tmp_cache(raw)
+            return raw
+        except OSError:
+            pass
     return None
+
+
+def _refresh_tmp_cache(raw):
+    """把最新 Cookies 快照写入 TEMP 缓存，同时解除 manual 配置的短路条件。"""
+    import tempfile
+    try:
+        with open(os.path.join(tempfile.gettempdir(), "_jd_ck.db"), "wb") as f:
+            f.write(raw)
+    except OSError:
+        pass
 
 
 def _cdp_cookies():
@@ -342,7 +380,12 @@ def ensure_cookies(verbose=False):
     cfg_ts = cfg.get("ts") or 0
     tmp = os.path.join(os.environ.get("TEMP", ""), "_jd_ck.db")
     tmp_ts = int(os.path.getmtime(tmp)) if os.path.isfile(tmp) else 0
-    if cfg_ck.get("thor") and cfg.get("manual") and cfg_ts > tmp_ts:
+    # manual 短路必须带 TTL：否则「配置比 TEMP 缓存新」这个条件一旦成立就永远成立
+    # （TEMP 缓存只在磁盘直读成功时刷新，而短路会让磁盘直读根本不执行 → 死锁）。
+    # 2026-10-14 实测踩坑：10-12 的 manual 配置把 10-14 重新登录的新 cookie 挡了两天。
+    MANUAL_TTL = 6 * 3600
+    fresh = (time.time() - cfg_ts) < MANUAL_TTL
+    if cfg_ck.get("thor") and cfg.get("manual") and fresh and cfg_ts > tmp_ts:
         if verbose:
             print("[cookie] 用手动配置（%s，新于 TEMP 缓存 %s）" % (
                 time.strftime("%m-%d %H:%M", time.localtime(cfg_ts)),
