@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 13 个稳定入口：**
+**本仓库收录 14 个稳定入口：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -19,6 +19,7 @@
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到 + 天天抽奖（做任务赚机会 → 转盘抽奖） |
 | 阿里云盘 | `scripts/aliyun_signin.py` | 每日签到；凭证从浏览器 Local Storage 实时读取，**无需抓包、无需关浏览器** |
+| 美团答题领现金 | `scripts/mt_answer.py` | 七日签到奖励 + 每日任务奖励自动领取（MGC Pike WebSocket 协议纯 Python 重放，无需浏览器） |
 
 ## 安装
 
@@ -65,6 +66,8 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/jd_web_signin.py auto                 # 京东京豆 + 互动中心
    python scripts/jd_web_signin.py interact
    python scripts/aliyun_signin.py auto                 # 阿里云盘
+   python scripts/mt_answer.py auto                     # 美团答题领现金
+   python scripts/mt_answer.py probe
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 
