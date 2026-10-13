@@ -84,9 +84,3 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 - 凭证有效期有限（分钟~天级），且部分平台是**服务端轮换制**（不是自然过期），失效后需重新抓包
 - 自动化操作可能违反部分平台的服务条款，风险自负；请勿高频调用，接口异常先停手排查
 - 仅供学习交流
-
----
-
-https://www.workbuddy.cn/events/invite?inviteCode=thb5u68d9bp6oc
-
-快来认识我的工作好搭子 Loomy，比龙虾🦞更易上手、更好用！快去 https://loomy.xunfei.cn/download 下载安装，输入我的专属邀请码 DF9N3T 即可开启体验～
