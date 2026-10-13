@@ -1,0 +1,5 @@
+{
+  "serviceToken": "<小米商城App抓包任意 shop-api.retail.mi.com 请求的 serviceToken>",
+  "userId": "<小米商城用户ID>",
+  "xmUuid": "<抓包 Cookie 里的 xmUuid>"
+}
