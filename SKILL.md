@@ -1,11 +1,11 @@
 ---
 name: 签到啦
-description: 一站式签到/领券综合工具，整合七个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description:美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十三个**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。日常执行统一走并发编排器 `scripts/run_all.py`（一键全平台，DAG 并发约 33s，见「二、我来自动完成」）。
+整合十三**已抓包验证**的自动化入口，全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -18,12 +18,10 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 | WorkBuddy 成长中心 | `scripts/wb_growth.py` | 补齐成长中心 6 项奖励：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒（先只读判有无资源→没有跳过、有就补齐，全幂等；凭证复用 totorosir 三通道，无需额外配置） | Python 标准库（复用 totorosir skill 取凭据） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | Loomy（讯飞 loomy.xunfei.cn） | `scripts/loomy_points.py` | 每日积分确认（站点活跃自动入账，纯 cookie 鉴权） | Python 标准库 |
-| Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；已纳入总控第【12】步每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
+| Loomy 桌面端（Electron 客户端，账号体系独立） | `scripts/loomy_desktop_tasks.py` | 新手任务 8 项共 10000 分（客户端专属；自动读本机登录态 token 头鉴权，换号=桌面端重登一次；每日检测，未完成自动补齐、满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
-| 凭证同步（魔搭/小浣熊/Loomy） | `scripts/cookie_sync.py` | ★三个平台凭证是服务端轮换制，本脚本从浏览器取最新 cookie 写回配置，浏览器不在线时自动拉起触发续期。阿里云盘不走 cookie（走 Local Storage），不在此列 | Python + websocket-client + Thorium CDP |
-| **并发编排器（一键全平台）** | `scripts/run_all.py` | ★把全部平台任务按依赖关系（DAG）并发编排：12 个独立平台与 cookie_sync 同时跑，仅魔搭/小浣熊/Loomy 等同步完成；京东链内串行防 WAF、命中 waf_blocked/login_expired 自动断掉后续只读步；9222 离线时编排器预拉起 headless 浏览器、收尾精准回收（不误杀用户窗口）。**实测串行 117s → 并发 33s（约 3.5x）**。`--dry` 看编排图、`--serial` 跑基线、`--backend thread/async/process` 选并发方式（默认 thread） | Python 标准库（+psutil 可选：内存采样/精准关浏览器） |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -33,7 +31,20 @@ description: 一站式签到/领券综合工具，整合七个已抓包验证的
 
 > 准备：电脑/手机微信挂 **Reqable / mitmproxy / Charles** 代理，正常打开对应小程序操作一次，把下面这条请求「整条复制」（抓包工具里选该请求 → 复制 Request）发给我即可。
 
-### 1) 美团福利社
+### 1) GR（丰田 GR）
+
+打开微信「TOYOTA GAZOO Racing」小程序 → 进入**品牌首页 → 签到**，抓这条请求：
+```
+POST https://www.toyotagazooracing-online.com.cn:8834/app/GRApi/user/acquisition
+```
+**发给我整条请求**（URL + 请求头 + 请求体 + 首段响应摘要）。
+
+> 若想要长期自动续期，会再配一条 OAuth 刷新（可选）：把下面这条也发我即可：
+> `POST https://www.toyotagazooracing-online.com.cn/auth/oauth2/token`
+
+---
+
+### 2) 美团福利社
 
 电脑微信打开「美团小程序 → 福利社」，点一下**领券/待领取**，抓这条请求：
 ```
@@ -61,7 +72,7 @@ https://media.meituan.com/fulishemini/couponActivity/listActivityCoupon...
 
 ---
 
-### 2) 南航
+### 3) 南航
 
 微信打开「中国南方航空」小程序，随便触发一次登录，抓这条请求：
 ```
@@ -97,7 +108,33 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
-### 3) 办公小浣熊（商汤 xiaohuanxiong.com）
+### 4) 利宝保险
+
+微信打开「利宝保险」小程序 → 进入**首页**（会加载文章流），或「我的」页，抓任意一条带 `authorization` 请求头的业务请求：
+```
+POST https://cs.libao.cn/customer/nol/platform/authentication/getAuthenticationUserInfo
+```
+**发给我整条请求**（URL + 请求头 + 请求体）。authorization 是 JWT（`Bearer eyJ...`），有效期约 30 天，响应头会自动轮换。
+
+> 每日自动领取 **3 篇阅读文章积分**（每篇 +20），按当日已完成列表幂等，领满自动跳过。
+> 另有**做任务领积分**（`receive` 接口，成功同时赠送抽奖机会）与**每日抽奖**（每天 1 次，机会由任务赠送）。
+
+---
+
+### 5) 掘金
+
+与前面几个小程序不同：掘金是**网页端**，不需要抓包。只要你电脑上 **Thorium 浏览器登录着掘金**（任意掘金页面，如 `juejin.cn/user/center/signin`）即可——脚本通过浏览器的 9222 调试端口直接在页面里发请求，cookie 自动携带。
+
+> 每日自动完成：**签到**（+1 矿石，已签则跳过）+ **免费抽奖 1 次**（签到后赠送，只抽免费的；免费次数用尽则跳过，**绝不消耗矿石**）+ **掘友分任务**（点赞文章×2、点赞沸点×2、关注掘友×2、浏览文章×5，全部读 task_list 剩余次数幂等执行）。
+> 抽奖规则：幸运值满 6000 必出转盘内实物奖励（苹果耳机 / Switch / 盲盒等）。
+>
+> **签到与抽奖必须走页面上下文**：掘金把 `check_in` / `lottery/draw` 列入 bdms 风控签名路径，纯 Python 请求会被 Tengine 拦截（返回 200 空 body），只有在浏览器页面里 fetch 才带签名。掘友分任务接口（digg/follow/task_list）无此限制。
+>
+> **验证码中间页全自动求解**：风控升级时页面会被替换为"验证码中间页"（内嵌字节跳动滑块 `rmc.bytedance.com/verifycenter`）。`jj_captcha.py` 模块自动完成全流程——抓取 iframe 内背景/拼图图片 → FFT-NCC 全二维定位缺口（块是背景的抠图，最佳匹配处即缺口）→ 自然坐标换算为页面坐标 → `Input.dispatchMouseEvent` 人类化拖动（缓动+抖动+微停顿）→ 判定通过/失败，失败间隔重试 5 次（避开 `[5014]` 操作过快频率检测）。无需人工介入；若 5 次仍未通过才报【掘金验证码失效】。
+
+---
+
+### 6) 办公小浣熊（商汤 xiaohuanxiong.com）
 
 **没有手动签到/领取接口**——个人免费版每日送 300 积分是"会话活跃自动入账"，脚本每天访问一次积分余额接口即触发/确认发放。
 
@@ -109,7 +146,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
-### 4) Loomy（讯飞 loomy.xunfei.cn）
+### 7) Loomy（讯飞 loomy.xunfei.cn）
 
 同样**没有签到/领取接口**——每日赠送积分随站点活跃自动入账，脚本每天查一次积分即确认。
 
@@ -117,17 +154,17 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 **桌面端（Electron 客户端，账号体系独立）**：`scripts/loomy_desktop_tasks.py` 完成新手任务（8 项共 10000 分，客户端专属，web 端无此任务接口）。登录态自动从本机 `<本机路径>` 读取（`token` 头鉴权，32 位讯飞 passport session，与 web cookie 不同载体、无需配置）。**每个账号需在桌面端登录一次后跑 `run` 领取**（换号=桌面端重登，脚本自动识别）；session 寿命 14 天固定无续期。生产接口 host 固定 `loomyad.xunfei.cn`（客户端本机残留测试地址会全程 100002，脚本已规避）。用法：`status` 查进度 / `run` 补齐未完成项（服务端幂等）。2026-10-12 两个账号均已满额。**已纳入每日总控任务第【12】步**：每天跑 `run` 做「检测+未完成自动补齐」——满额时零副作用跳过，服务端新增任务或换登录账号时自动跟进入账；100002（约每 14 天 session 到期）标注【Loomy桌面登录失效】提醒在桌面端重登一次即恢复。
 
-### 5) 天翼云盘（cloud.189.cn）
+### 8) 天翼云盘（cloud.189.cn）
 
 浏览器登录 [cloud.189.cn](https://cloud.189.cn) 后，把**任意一条 cloud.189.cn 请求的整行 Cookie** 发我（或直接告诉我"浏览器已登录天翼189"，我用 CDP 自动抓，无需手抓）。核心凭证是 `SSON`（httpOnly 单点登录 cookie），脚本链路：`SSON → unifyLoginForPC（收服务端会话 cookie）→ POST api.cloud.189.cn/getSessionForPC.action 换 sessionKey/accessToken/refreshToken → GET /mkt/userSign.action?sessionKey=...` 签到领随机空间。
 
 - 每日个人签到：随机 +几 MB ~ 几十 MB 空间（实测 2026-10-12 +26MB，服务端 totalSize 对账一致）；`isSign=true` 时当天重复跑零副作用
 - 凭证寿命：accessToken/refreshToken 由 getSessionForPC 下发（sdk 标称 7 天），SSON 本身长期有效；配置存 `c189_config.json`（sson / accessToken / refreshToken / sessionKey / loginName）
-- 失效表现：`getSessionForPC` 返回非 0 res_code 或 HTTP 400 → 标注【天翼189失效】，重抓一条 SSON cookie 即可（或跑 `cookie_sync.py` 扩展）
+- 失效表现：`getSessionForPC` 返回非 0 res_code 或 HTTP 400 → 标注【天翼189失效】，重抓一条 SSON cookie 即可
 
 ---
 
-### 6) 京东京豆（Web 端，2026-10-12 自行逆向）
+### 9) 京东京豆（Web 端，2026-10-12 自行逆向）
 
 **无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
 脚本每次运行都从浏览器磁盘 Cookies 库**实时提取最新 cookie**，所以只要浏览器里京东是登录态，签到就全自动。
@@ -195,38 +232,17 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 脚本自带幂等：当天已完成会自动跳过，删除对应 `*_state.json` 可重跑。
 
-> **★全平台执行请用 `run_all.py`（并发编排，2026-10-13 建成）**：以前 15 个平台是「一步一步串行等」，总耗时 ≈ 各平台之和（实测 117s）。现在改为**依赖图（DAG）并发**：真正需要等凭证同步的只有魔搭/小浣熊/Loomy 三家，其余 12 家与 `cookie_sync` **同时启动**，墙钟 = 最长单任务（掘金 23s / 京东链 22s），实测 **32~33s，约 3.5x**。
->
-> 三种并发方式的实测对比（同一任务图、workers=10）：
->
-> | 方式 | 墙钟 | 峰值内存 | 结论 |
-> |---|---|---|---|
-> | 串行基线 | 116.7s | ~2.0 GB | 优化前形态 |
-> | **线程池（默认）** | **32.6s** | **2.43 GB** | ★**最优**：等待子进程时 GIL 已释放，真并发；编排代码最短、失败隔离好 |
-> | 协程 asyncio | 32.5s | 2.51 GB | 与线程池持平（瓶颈在子进程，不在编排层），代码复杂度最高 |
-> | 进程池 | 61.6s(w6) | 2.34 GB | **不推荐**：worker 只是「等子进程」，多一层解释器纯属浪费，DAG 还要处理对象可 pickle |
->
-> 关键结论：任务是 **I/O 型子进程**，并发收益 100% 来自「不要串行等」，而**不是**来自进程/协程本身的特性——所以选**改动最小、最好维护的线程池**即可；再往上加速只能削单任务耗时（如掘金 23s 的 CDP 页面等待、京东 h5st 签名），换后端没有边际收益。
->
-> 内置的并发安全约束（不是「无脑并行」）：
-> - **京东三步链内串行**：同 host 的 WAF 按端点频率限流，并发轰炸只会自找 403；命中 `waf_blocked`/`login_expired` 自动**断掉链内后续只读步**（省 10s）。
-> - **WorkBuddy 签到→成长中心**链内串行（同一凭证域）。
-> - **浏览器**：9222 离线时由编排器**预拉起** headless Thorium（带掘金页），`cookie_sync` 自动改 `keep` 模式不再自己起/关；收尾按 `--headless` 特征**精准回收进程树**——绝不再 `taskkill //IM thorium.exe`（那会误杀你自己开着的浏览器）。
-> - 美团三脚本共享 `mt_config.json` **只读**、各写独立 state，可并行。
->
-> `python scripts/run_all.py --dry` 打印编排图；`--serial` 跑串行基线；`--backend async|process` 可复现上面这张表。机器可读结果落 `run_all_bench.json`。
 
-> **凭证会自己失效怎么办？** 魔搭 / 小浣熊 / Loomy 这三家的凭证**不是自然过期，而是服务端轮换**——浏览器每次访问站点都会自动拿到新凭证，脚本存的却是静态快照，所以过一阵必然失效（典型表现：401 / 400 params_invalid_error）。已内置 `cookie_sync.py`：从浏览器读取最新 cookie 写回配置，浏览器没开就自动拉起访问三个站点触发续期，用完自动关闭。**每日任务第 0 步自动执行**，你也可以随时手动跑一次。诊断用 `cookie_probe.py`（对比浏览器值与配置值、显示过期属性）。
 
 **每日自动覆盖范围**：
 - 美团：惠省小程序首页红包墙领券（`couponViewId` 判可领、rightCode 级幂等，当天后出现的新批次也能领到）+ 营销页红包（配了 recallToken 才有）+ 福利社 H5 活动页（限时抢券 + 天降掉券，活动 ID 自动发现）+ 分销会场每日券包（grant 链路，单日 ¥180+）+ 分销中心跨券墙
 - 南航：发现新境签到、营销活动签到领里程（活动 ID 动态探测，过期活动自动跳过）、签到抽奖机会检测与消耗（消耗需新鲜小程序 sessionId，半自动）
 - 魔搭：登录魔粒 +250（会话副作用，访问首页自动入账）+ 点赞刷分 +40（star/unstar 循环 20 次）
-- WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）+ **成长中心 6 项补齐**（`wb_growth.py`：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒，先只读判有无资源、没有就跳过，全幂等；已纳入总控第【9】步第 2 个子步骤）
+- WorkBuddy：Buddy 加油站签到 +100/天（连续 7/14/28 天有额外档）+ 派猫猫旅行闭环（先领后派，5~10/天）+ **成长中心 6 项补齐**（`wb_growth.py`：盲盒抽奖 / 连登三档兑换 / 断登补签 / 接任务 / 领任务奖 / 能量开 Buddy 盲盒，先只读判有无资源、没有就跳过，全幂等；第 2 个子步骤）
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
-- Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）已纳入总控第【12】步每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
+- Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
-- 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；已纳入总控第【14】步第 2 个子步骤）
+- 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；第 2 个子步骤）
 - 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
 
 ---
@@ -285,8 +301,6 @@ python scripts/csair_signin.py doctor    # 凭证探活（sessionId / H5 signTok
 
 
 # 利宝推荐有礼（转介绍活动，复用 libao_config.json，非每日必做，可随时查进度/尝试领取）
-python scripts/libao_referral.py status   # 身份+活码+奖励余额+9里程碑进度表
-python scripts/libao_referral.py auto     # 同步战绩 + 尝试领取全部达标里程碑
 
 
 # 魔搭：登录魔粒 + 点赞刷分（auto=全部 290/日；需 ms_config.json 整行 cookie）
@@ -307,7 +321,6 @@ python scripts/wb_growth.py probe          # 逐接口连通/数据探测（调�
 python scripts/xhx_office_points.py auto
 python scripts/xhx_office_points.py status
 
-# Loomy web 端：积分确认（auto=查汇总；cookie 失效先跑 cookie_sync）
 python scripts/loomy_points.py auto
 python scripts/loomy_points.py status
 
@@ -337,8 +350,6 @@ python scripts/aliyun_signin.py init <32位refresh_token>  # 手动兜底；init
 
 # 凭证同步：魔搭/小浣熊/Loomy 轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 # 阿里云盘不走 cookie（凭证在 Local Storage），不在此列
-python scripts/cookie_sync.py                          # 全部三家
-python scripts/cookie_probe.py                         # 只读诊断：浏览器值 vs 配置值 + 过期属性
 ```
 
 挂定时任务（如每天 08:30 依次跑四条），脚本自带幂等，当天完成后自动跳过；删除对应 `*_state.json` 可重跑。
