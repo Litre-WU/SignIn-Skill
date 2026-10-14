@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 10 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 11 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -14,8 +14,9 @@
 | 讯飞Loomy（2 项） | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | Web 端积分 + 桌面端新手任务（总控合并为单一任务，链内串行） |
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到 + 天天抽奖（做任务赚机会 → 转盘抽奖） |
-| 阿里云盘 | `scripts/aliyun_signin.py` | 每日签到；凭证从浏览器 Local Storage 实时读取，**无需抓包、无需关浏览器** |
+| 阿里系（2 项） | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py` | 阿里云盘签到（浏览器 Local Storage 实时取凭证）+ 千问办公每日 100 积分（桌面端 v10 信封解密取凭证），均无需抓包 |
 | 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
+| 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效） |
 
 ## 安装
 
@@ -68,6 +69,11 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/xm_mijin.py probe
    python scripts/yp_rpsign.py auto                     # 有品每日签到（红包）
    python scripts/yp_rpsign.py probe
+   python scripts/qwenwork_credits.py auto              # 千问办公（阿里）
+   python scripts/qwenwork_credits.py status
+   python scripts/hw_codearts.py auto                   # 华为码道 CodeArts Doer
+   python scripts/hw_codearts.py init '<cookie>'
+   python scripts/hw_codearts.py probe
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 

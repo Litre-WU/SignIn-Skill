@@ -1,0 +1,4 @@
+{
+  "token": "<可选兜底：千问办公桌面端 JWT，缺省时实时读 %APPDATA%/QwenWorkCN/auth-v2.dat>",
+  "refreshToken": "<可选：ory_rt_ 开头的刷新 token>"
+}

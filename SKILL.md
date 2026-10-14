@@ -2,12 +2,12 @@
 name: 签到啦
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合16个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合18个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十六个**已抓包验证**的自动化入口（16 个脚本，按「同一家企业产品合并」原则收敛为 13 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合十八个**已抓包验证**的自动化入口（18 个脚本，按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -19,8 +19,9 @@ description: 一站式签到/领券综合工具，整合16个已抓包验证的�
 | **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
-| 阿里云盘（www.aliyundrive.com） | `scripts/aliyun_signin.py` | 每日签到。★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 | Python 标准库 |
+| **阿里系（2 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
+| 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。三步链路：`ops/delivery` 查 `claimable` → `ops/claim`（idempotentKey `claim_<id>_<ms>`）→ `ops/confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
@@ -209,6 +210,27 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★10-13「请登录」卡点根因 = **host 用错**：有品 App serviceToken 在 `m.xiaomiyoupin.com` 域直接 code 0（10-13 误试 shopapi.io.mi.com + passportapi token，双重错误）
 - 接口族：getActInfo / clickSign / getFetchRecord / shareOrLike / remind + `/mtop/coupon/redpacket/get_user_balance`（红包余额），body 均 `params:[{}, X]`
 
+### 14) 千问办公（阿里系，2026-10-14 建成）
+
+**免抓包**：安装并登录「千问办公」桌面端即可，脚本实时解密 `%APPDATA%/QwenWorkCN/auth-v2.dat`。
+
+- ★凭证机制：`auth-v2.dat` 是 Chromium **v10 加密信封**（`{"schemaVersion":2,"token":"<JWT>","refreshToken":"ory_rt_..."}`），解密链与浏览器 cookie 完全一致 —— `Local State` 的 `os_crypt.encrypted_key` 去 `DPAPI` 5B 头 → `CryptUnprotectData` → 32B AES key → `AESGCM(nonce=ev[3:15]).decrypt(ev[15:])`
+- ★**优先实时读客户端文件**（桌面端自己会续期），`qwenwork_config.json` 只作兜底 → **永不与客户端抢 refresh_token 轮换、不踢下线**
+- 接口：BASE=`https://gateway.qwenwork.cn`；`GET /api/v1/adapter/user/wallets`（日包/月包/长期余额）、`GET /api/v1/adapter/user/account-context?include=user,plan,quota`、`POST /api/v1/deviceToken/refresh` `{refresh_token,target:"c"}`
+- ★实测结论：免费版每日 100 积分是**服务端自动发放**（当日有效，`valid_to`=次日 00:00），桌面端无手动领取动作；前端 bundle 里的 `/sash/api/v1/me/daily-check-in/{status,claim}` 在**生产网关未路由（404）**，脚本探测到 404 自动跳过、走钱包核对
+- 断线症状：`auth-v2.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
+
+### 15) 华为码道 CodeArts Doer（2026-10-14 建成）
+
+抓包：浏览器登录 `devcloud.cn-north-4.huaweicloud.com/chat/home` → F12 → Network 任意 `PromptCenterService` 请求 → 复制**整行 cookie 头** → `python scripts/hw_codearts.py init '<cookie>'`。
+
+- ★必须先去掉 `x-requested-with: XMLHttpRequest` 才能拿到 `/chat/home` 页面（带该头网关一律按 API 路由 → 404）
+- 接口族（从前端 `index.js` + `DefaultLayout` chunk 反查）：`GET ops/delivery?channel=WEB`、`POST ops/claim`、`POST ops/confirm`、`POST ops/invite/generate`、`POST ops/invite/confirm-by-code?inviteCode=`、`GET ops/tasks/conversation`、`POST ops/events/conversation`
+- `cftk` 头 = cookie 里的 `devclouddevuibjtcftk`（`home.html` 明示 `app_cookie_prefix=cftk`），脚本自动提取
+- 活动清单：id=1 每日签到 1000 积分（`USER_LOGIN`）、id=2 学生认证 4000（需先认证，直领返 40001「需要先通过触发接口激活」）、id=3 邀请 1000/人、id=4 新用户注册 4000（`AUTO_GRANT`）
+- ★两步不可省：`claim` → `CLAIMED`，`confirm` → `CONFIRMED`（积分才入账），confirm 返回 `totalAmount/remainingAmount/expireAt`（30 天有效）
+- 幂等：`claimable=false` + `status=CONFIRMED` = 今日已领；硬提交返 HTTP200 + `code:40001「尚未到达权益刷新时间，暂时无法领取」`
+
 ---
 
 ## 二、我来自动完成
@@ -233,6 +255,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
 - 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；第 2 个子步骤）
 - 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
+- 千问办公：每日 100 积分核对（`qwenwork_credits.py auto`；凭证实时解密桌面端 `auth-v2.dat`，免抓包；免费版积分**服务端自动发放、当日有效**，脚本核对日包余额 + 尝试签到接口）
+- 华为码道：每日签到领 1000 积分（`hw_codearts.py auto`；`delivery` 判 `claimable` → `claim` → `confirm`；已领时 `claimable=false`，脚本跳过并打印积分桶余额）
 
 ---
 
@@ -336,6 +360,18 @@ python scripts/aliyun_signin.py auto                   # 签到 + 判读今日�
 python scripts/aliyun_signin.py status                 # 只读：累计天数/今日是否已签
 python scripts/aliyun_signin.py probe                  # 探凭证来源 + 原始签到响应
 python scripts/aliyun_signin.py init <32位refresh_token>  # 手动兜底；init auto = 强制从浏览器重提
+
+# 千问办公（安装并登录桌面端 QwenWorkCN，脚本解密 auth-v2.dat，免抓包）
+python scripts/qwenwork_credits.py auto                 # 签到探测 + 钱包核对（定时任务用这个）
+python scripts/qwenwork_credits.py status               # 只读：日包/月包/长期余额 + 额度
+python scripts/qwenwork_credits.py init                 # 把客户端凭证导出到 qwenwork_config.json 兜底
+python scripts/qwenwork_credits.py refresh              # 手动续期（会轮换 refresh_token，非必要别跑）
+
+# 华为码道（登录 devcloud.cn-north-4.huaweicloud.com/chat/home 后 F12 抓一条）
+python scripts/hw_codearts.py init "<整行cookie>"        # 落盘凭证并校验（cftk 自动从 cookie 提取）
+python scripts/hw_codearts.py auto                      # delivery → claim → confirm（定时任务用这个）
+python scripts/hw_codearts.py status                    # 只读：活动状态 + 积分桶
+python scripts/hw_codearts.py probe                     # 不可领时硬提交一次，拿到服务端原文定位刷新时间
 
 # 凭证同步：魔搭/小浣熊/Loomy 轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 # 阿里云盘不走 cookie（凭证在 Local Storage），不在此列
