@@ -20,14 +20,19 @@ import os
 import subprocess
 import sys
 
-PY = sys.executable
+# 解释器：WB_PY 覆盖 → 否则就用当前正在跑本脚本的 python（再去调 buddy_station.py）。
+# 别硬编码某个 .workbuddy/binaries 版本目录——那颗子一升级/改名，WorkBuddy 这步就整步失效。
+PY = os.environ.get("WB_PY") or sys.executable
 
 HOME = os.path.expanduser("~")
 # buddy_station.py 候选位置（skill 目录 / skillhub 分发后缀）
-BS_CANDIDATES = [
-    os.path.join(HOME, ".workbuddy", "skills", "totorosir-workbuddy-score", "scripts", "buddy_station.py"),
-    os.path.join(HOME, ".workbuddy", "skills", "totorosir-workbuddy-score__skillhub", "scripts", "buddy_station.py"),
-]
+BS_CANDIDATES = []
+# 官方 skill 的 scripts 目录：Qoder 生效目录优先（.qoder-cn / .agents），老 .workbuddy/skills
+# 已在 2026-10-15 改名 skills_deprecated_20261015，只搜老路径会天天报「skill 未安装」。
+for _root in (".qoder-cn", ".agents", ".workbuddy"):
+    for _leaf in ("totorosir-workbuddy-score", "totorosir-workbuddy-score__skillhub"):
+        BS_CANDIDATES.append(os.path.join(HOME, _root, "skills", _leaf, "scripts",
+                                          "buddy_station.py"))
 
 
 def find_bs():
@@ -43,8 +48,12 @@ def run_bs(args):
     if not bs:
         return False, "", "未找到 buddy_station.py（skill 未安装？）"
     cmd = [PY, bs] + args
+    # ★必须显式按 UTF-8 收：buddy_station.py 输出中文，父进程默认按本地 GBK 解，
+    #   reader 线程直接 UnicodeDecodeError → 表现为「无法解析输出」的假失效。
+    env = dict(os.environ, PYTHONIOENCODING="utf-8")
     try:
-        r = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        r = subprocess.run(cmd, capture_output=True, timeout=180,
+                           encoding="utf-8", errors="replace", env=env)
     except subprocess.TimeoutExpired:
         return False, "", "buddy_station.py 执行超时（180s）"
     except Exception as e:

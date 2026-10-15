@@ -39,7 +39,7 @@ import sqlite3
 import tempfile
 import time
 
-__all__ = ["extract", "browser_ud", "cookie_header", "probe_domains"]
+__all__ = ["extract", "extract_full", "browser_ud", "cookie_header", "probe_domains"]
 
 SHARE_READ = 0x00000001
 SHARE_WRITE = 0x00000002
@@ -136,33 +136,40 @@ def _raw_read(ck_path, retries=26, pause=1.2):
 
 
 # ---------------------------------------------------------------- SQLite 解析
-def _parse_db(db_path, domains, key):
-    """解析一个 Cookies 库，返回 {name: value}（同名取最长，跨 host 合并）。"""
+def _rows(db_path, domains):
+    """取候选 cookie 行（带 path / is_secure，注入浏览器时要用）。"""
     like = " OR ".join(["host_key LIKE ?"] * len(domains))
     params = ["%" + d for d in domains]
     con = sqlite3.connect(db_path)
     try:
-        rows = con.execute(
-            "SELECT host_key, name, encrypted_value FROM cookies WHERE " + like,
+        return con.execute(
+            "SELECT host_key, name, encrypted_value, path, is_secure FROM cookies WHERE " + like,
             params).fetchall()
     finally:
         con.close()
+
+
+def _decrypted(rows, key):
+    """解密行 → [(host_key, name, value, path, secure)]（解不开的跳过）。"""
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    best = {}
-    for _host, name, ev in rows:
+    out = []
+    for host, name, ev, path, secure in rows:
         if not ev or ev[:3] != b"v10":
             continue
         try:
             v = AESGCM(key).decrypt(ev[3:15], ev[15:], None).decode("utf-8", "replace")
         except Exception:
             continue
-        if not v:
-            continue
-        cur = best.get(name)
-        if cur is None or len(v) > len(cur):
-            best[name] = v
-    return best
+        if v:
+            out.append((host, name, v, path or "/", bool(secure)))
+    return out
+
+
+def _parse_db_full(db_path, domains, key):
+    """解析一个 Cookies 库，返回 [{name, value, domain, path, secure}]（保留 host_key）。"""
+    return [{"name": name, "value": v, "domain": host, "path": path, "secure": secure}
+            for host, name, v, path, secure in _decrypted(_rows(db_path, domains), key)]
 
 
 def _candidate_caches(tag):
@@ -187,13 +194,13 @@ def _candidate_caches(tag):
     return out + others
 
 
-def _parse_bytes(raw, domains, key):
-    """解析内存中的 Cookies 库字节（写入临时文件后走 SQLite）。"""
+def _parse_bytes_full(raw, domains, key):
+    """把内存中的 Cookies 库字节落到临时文件再解析（保留 host_key）。"""
     tmp = os.path.join(tempfile.gettempdir(), "_wb_ck_tmp.db")
     try:
         with open(tmp, "wb") as f:
             f.write(raw)
-        return _parse_db(tmp, domains, key)
+        return _parse_db_full(tmp, domains, key)
     finally:
         try:
             os.remove(tmp)
@@ -202,51 +209,42 @@ def _parse_bytes(raw, domains, key):
 
 
 # ---------------------------------------------------------------- CDP 回退
-def _cdp_cookies(domains):
-    """浏览器带 9222 调试端口时，用 Network.getAllCookies 取 cookie（含 httpOnly）。"""
+def _cdp_raw():
+    """走 9222 拿全量 cookie 原始列表（含 httpOnly）。拿不到返回 []。"""
     import urllib.request
 
     try:
         import websocket
     except ImportError:
-        return None
+        return []
     opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
     try:
         with opener.open("http://127.0.0.1:9222/json/list", timeout=4) as r:
             pages = json.loads(r.read().decode("utf-8", "replace"))
     except Exception:
-        return None
+        return []
     if not pages:
-        return None
-    target = None
+        return []
+    target = pages[0]
     for p in pages:
-        if p.get("type") == "page" and any(d in (p.get("url") or "") for d in domains):
+        if p.get("type") == "page":
             target = p
             break
-    if target is None:
-        target = pages[0]
     try:
         ws = websocket.create_connection(target["webSocketDebuggerUrl"], timeout=10,
                                          suppress_origin=True)
     except Exception:
-        return None
+        return []
     try:
         ws.send(json.dumps({"id": 1, "method": "Network.enable"}))
         ws.send(json.dumps({"id": 2, "method": "Network.getAllCookies"}))
-        got = {}
         for _ in range(40):
             msg = json.loads(ws.recv())
             if msg.get("id") == 2:
-                for c in msg.get("result", {}).get("cookies") or []:
-                    d = c.get("domain") or ""
-                    if any(d == dom or d.endswith("." + dom) for dom in domains):
-                        n, v = c.get("name"), c.get("value") or ""
-                        if v and (n not in got or len(v) > len(got[n])):
-                            got[n] = v
-                break
-        return got or None
+                return msg.get("result", {}).get("cookies") or []
+        return []
     except Exception:
-        return None
+        return []
     finally:
         try:
             ws.close()
@@ -254,25 +252,46 @@ def _cdp_cookies(domains):
             pass
 
 
-# ---------------------------------------------------------------- 主入口
-def extract(domains, tag="wb", verbose=False, allow_cdp=True):
-    """按优先级提取指定域名的登录 cookie。
+def _cdp_cookies(domains):
+    """浏览器带 9222 调试端口时，用 Network.getAllCookies 取 cookie（含 httpOnly）。"""
+    got = {}
+    for c in _cdp_raw():
+        d = c.get("domain") or ""
+        if any(d == dom or d.endswith("." + dom) for dom in domains):
+            n, v = c.get("name"), c.get("value") or ""
+            if v and (n not in got or len(v) > len(got[n])):
+                got[n] = v
+    return got or None
 
-    domains: 域名后缀列表，如 ["quark.cn"] / ["aliyundrive.com"]
-    tag:     TEMP 缓存文件名后缀（避免多平台互相覆盖）
-    返回 {name: value}；失败返回 {}。
+
+def _cdp_cookies_full(domains):
+    """同 _cdp_cookies，但保留 domain/path/secure（注入用）。"""
+    out = []
+    for c in _cdp_raw():
+        d = c.get("domain") or ""
+        if any(d == dom or d.endswith("." + dom) for dom in domains) and c.get("value"):
+            out.append({"name": c.get("name"), "value": c["value"], "domain": d,
+                        "path": c.get("path") or "/", "secure": bool(c.get("secure"))})
+    return out or None
+
+
+# ---------------------------------------------------------------- 主入口
+def _collect(domains, tag="wb", verbose=False, allow_cdp=True):
+    """按优先级取指定域名的登录 cookie，返回 [{name,value,domain,path,secure}]。
+
+    优先级：1) 磁盘直读（绕独占锁）2) TEMP 整库缓存 3) CDP 9222。失败返回 []。
     """
     ud = browser_ud()
     if not ud:
         if verbose:
             print("[cookie] 未找到浏览器 User Data 目录（设 WB_BROWSER_UD 指定）")
-        return {}
+        return []
 
     paths = _cookies_paths(ud)
     if not paths:
         if verbose:
             print("[cookie] 未找到 Cookies 库: %s" % ud)
-        return {}
+        return []
 
     # 1) 磁盘直读（逐个候选路径尝试）
     raw = None
@@ -285,7 +304,7 @@ def extract(domains, tag="wb", verbose=False, allow_cdp=True):
     if raw:
         try:
             key = _master_key(ud)
-            got = _parse_bytes(raw, domains, key)
+            got = _parse_bytes_full(raw, domains, key)
             if got:
                 # 顺手刷新 TEMP 缓存（本平台专属 + 通用 all），供其他平台回退
                 for name in ("_wb_ck_%s.db" % tag, "_wb_ck_all.db"):
@@ -304,7 +323,7 @@ def extract(domains, tag="wb", verbose=False, allow_cdp=True):
     # 2) TEMP 缓存：本平台专属优先，其次任意平台的整库副本（按新鲜度）
     for cache in _candidate_caches(tag):
         try:
-            got = _parse_db(cache, domains, _master_key(ud))
+            got = _parse_db_full(cache, domains, _master_key(ud))
             if got:
                 if verbose:
                     print("[cookie] TEMP 缓存命中 %d 个（%s, %s）" % (
@@ -317,13 +336,35 @@ def extract(domains, tag="wb", verbose=False, allow_cdp=True):
 
     # 3) CDP 9222
     if allow_cdp:
-        got = _cdp_cookies(domains)
+        got = _cdp_cookies_full(domains)
         if got:
             if verbose:
                 print("[cookie] CDP 9222 命中 %d 个" % len(got))
             return got
 
-    return {}
+    return []
+
+
+def extract(domains, tag="wb", verbose=False, allow_cdp=True):
+    """按优先级提取指定域名的登录 cookie。
+
+    domains: 域名后缀列表，如 ["quark.cn"] / ["aliyundrive.com"]
+    tag:     TEMP 缓存文件名后缀（避免多平台互相覆盖）
+    返回 {name: value}（同名多域取最长值）；失败返回 {}。
+    """
+    best = {}
+    for c in _collect(domains, tag, verbose, allow_cdp):
+        cur = best.get(c["name"])
+        if cur is None or len(c["value"]) > len(cur):
+            best[c["name"]] = c["value"]
+    return best
+
+
+def extract_full(domains, tag="wb", verbose=False, allow_cdp=True):
+    """同 extract()，但保留 host_key：[{name,value,domain,path,secure}]。
+    ★往浏览器里注入登录态必须用它——domain 照抄库里的 host_key（前导点写法），
+      否则子域收不到（2026-10-15 掘金救援实测）。"""
+    return _collect(domains, tag, verbose, allow_cdp)
 
 
 def cookie_header(ck):

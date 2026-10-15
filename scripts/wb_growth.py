@@ -37,11 +37,28 @@ import urllib.request
 import urllib.error
 from datetime import date, datetime
 
-SCRIPT_DIR = os.path.join(
-    os.path.expanduser("~"), ".workbuddy", "skills",
-    "totorosir-workbuddy-score", "scripts")
+def _find_bs_dir():
+    """官方 skill totorosir-workbuddy-score 的 scripts 目录。
+    ★2026-10-15 起 Qoder 的生效目录是 ~/.qoder-cn/skills 与 ~/.agents/skills，
+      ~/.workbuddy/skills 已整体改名 skills_deprecated_20261015（只读留档），
+      只搜老路径会让 WorkBuddy 这两步天天报「未找到 buddy_station.py」。"""
+    home = os.path.expanduser("~")
+    roots = [os.path.join(home, ".qoder-cn", "skills"),
+             os.path.join(home, ".agents", "skills"),
+             os.path.join(home, ".workbuddy", "skills")]
+    cands = []
+    for r in roots:
+        for leaf in ("totorosir-workbuddy-score", "totorosir-workbuddy-score__skillhub"):
+            cands.append(os.path.join(r, leaf, "scripts"))
+    for p in cands:
+        if os.path.isfile(os.path.join(p, "buddy_station.py")):
+            return p
+    return ""
+
+
+SCRIPT_DIR = _find_bs_dir()
 # 让 buddy_station / web_auth / rt_auth 可被 import
-if os.path.isdir(SCRIPT_DIR):
+if SCRIPT_DIR:
     sys.path.insert(0, SCRIPT_DIR)
     os.chdir(SCRIPT_DIR)
 

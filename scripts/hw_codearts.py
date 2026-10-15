@@ -139,8 +139,32 @@ def call(method, path, cookie, cftk, body=None):
     try:
         j = json.loads(raw)
     except Exception:
-        j = {"raw": raw[:300]}
+        # 空响应/HTML 都归到这里：把形态留在 "raw" 里，别让上层只能猜
+        j = {"raw": raw[:300], "_shape": _shape(raw)}
     return st, j
+
+
+def _shape(raw):
+    """响应体形态描述（登录态排查用，别只说「HTTP 200」）。"""
+    s = (raw or "").strip()
+    if not s:
+        return "空响应体（华为云 WAF/网关在登录态失效时就这么回）"
+    low = s[:200].lower()
+    if "<html" in low or "<!doctype" in low:
+        return "HTML 页（多半被跳转到登录页）"
+    return "非 JSON 响应 %dB" % len(s)
+
+
+def fail_reason(st, j):
+    """把 delivery 的失败形态翻成一句可执行结论（调用方再决定怎么标失效）。"""
+    if st in (401, 403):
+        return "HTTP %s 明确拒绝" % st
+    if isinstance(j, dict) and j.get("code") in (401, 403):
+        return "业务码 %s（未登录）" % j.get("code")
+    shape = j.get("_shape") if isinstance(j, dict) else None
+    if shape:
+        return "HTTP %s 但%s" % (st, shape)
+    return "HTTP %s %s" % (st, errmsg(j))
 
 
 def ok(j):
@@ -159,11 +183,9 @@ def errmsg(j):
 # ── 业务 ──────────────────────────────────────────────────────────────────
 def get_delivery(cookie, cftk):
     st, j = call("GET", OPS + "/delivery?channel=WEB", cookie, cftk)
-    if st == 401 or (isinstance(j, dict) and j.get("code") in (401, 403)):
-        return st, None
     if not ok(j):
-        return st, None
-    return st, (j.get("data") or {})
+        return st, None, fail_reason(st, j)
+    return st, (j.get("data") or {}), ""
 
 
 def pick_daily(items, campaign_id="1"):
@@ -216,11 +238,9 @@ def cmd_init():
     cookie = sys.argv[2].strip().strip('"')
     cftk = cftk_from_cookie(cookie)
     cfg = {"cookie": cookie, "cftk": cftk, "campaign_id": "1"}
-    st, data = get_delivery(cookie, cftk)
+    st, data, why = get_delivery(cookie, cftk)
     if data is None:
-        print("[警告] delivery HTTP %s（登录态可能失效）— 仍写入配置" % st)
-        if st in (401, 403):
-            print("       →【华为码道失效】需重新抓取 cookie")
+        print("[警告] delivery 没拿到活动清单（%s）— 仍写入配置" % why)
     else:
         print("[OK] cookie 有效，活动 %d 项" % len(data.get("items") or []))
         for it in (data.get("items") or []):
@@ -239,9 +259,9 @@ def _core(try_claim_even_if_not_claimable=False):
     cftk = cfg.get("cftk") or cftk_from_cookie(cookie)
     cid = str(cfg.get("campaign_id") or "1")
 
-    st, data = get_delivery(cookie, cftk)
+    st, data, why = get_delivery(cookie, cftk)
     if data is None:
-        print("[失败] delivery HTTP %s —【华为码道失效】cookie 需重抓" % st)
+        print("[失败] delivery %s —【华为码道失效】cookie 需重抓" % why)
         return 3
 
     items = data.get("items") or []
@@ -269,7 +289,14 @@ def _core(try_claim_even_if_not_claimable=False):
         return 0
 
     # 不可领: 给出服务端原文（用于定位刷新时间）
-    print("[跳过] claimable=%s status=%s（前端文案「今日已签到，明天再来吧」）" % (claimable, status))
+    # ★delivery 通、活动清单在、只是服务端说不可领 —— 这是业务态不是失效。
+    #   实测权益刷新周期并非自然日（10-14 显示 claimedAt=09-27），所以每天跑、
+    #   claimable 为真才领；返回 4 会让总控天天误报「华为码道异常」。
+    if status in DONE_STATUS:
+        print("[跳过] 今日已领（claimable=%s status=%s，前端文案「今日已签到，明天再来吧」）"
+              % (claimable, status))
+    else:
+        print("[今日不可领] claimable=%s status=%s（未到权益刷新时间，非失效）" % (claimable, status))
     if try_claim_even_if_not_claimable:
         st1, j1 = do_claim(cookie, cftk, it.get("campaignId") or cid)
         print("[试探] claim HTTP %s → %s" % (st1, errmsg(j1)))
@@ -279,7 +306,7 @@ def _core(try_claim_even_if_not_claimable=False):
         print("[积分桶] %s" % fmt_bucket(j2.get("data")))
     else:
         print("[积分桶] HTTP %s %s" % (st2, errmsg(j2)))
-    return 0 if status in DONE_STATUS else 4
+    return 0
 
 
 def cmd_status():

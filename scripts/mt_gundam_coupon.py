@@ -56,7 +56,23 @@ GUNDAM_TPL = "https://market.waimai.meituan.com/gd2/wm/%s?gundam_id=%s&tenant=gu
 RIGHTS = "https://rights-apigw.meituan.com/api/rights/activity/secKill"
 PROMO = "https://promotion.waimai.meituan.com"
 MARKET = "https://market.waimai.meituan.com"
-NODE = os.environ.get("MT_NODE") or "node"
+def find_node():
+    """MT_NODE → ~/.workbuddy 里的 node（按版本目录通配，别钉死版本号）→ 系统安装 → PATH。
+    ★原先这里写死了某个 node 版本目录，那颗子一升级福利社这步就整步报错。"""
+    import glob
+    import shutil
+    cands = [os.environ.get("MT_NODE")]
+    cands += sorted(glob.glob(os.path.expanduser(
+        "~/.workbuddy/binaries/node/versions/*/node.exe")), reverse=True)
+    cands += [r"C:\Program Files\nodejs\node.exe", r"C:\Program Files (x86)\nodejs\node.exe",
+              shutil.which("node")]
+    for c in cands:
+        if c and os.path.exists(c):
+            return c
+    return "node"
+
+
+NODE = find_node()
 H5_SIGNER = os.path.join(BASE, "mt_h5_sign.js")
 
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
