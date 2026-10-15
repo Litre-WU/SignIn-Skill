@@ -39,6 +39,10 @@ qoder_credits.py — Qoder CN 每日领 100 Credits
     相隔 86340s），每期 campaignId 是新的 UUIDv7 → **绝不能硬编码 campaignId**，
     必须每次 GET campaigns 动态取。campaignKey（如 act-20261013-847）是活动模板 key，不随期变。
   - 挑选: actionType=="CLAIM_BENEFIT" 且 benefit.kind=="CREDITS"（每日 100 的那期）
+  - ★窗口切换边界：总控 10:00 跑与窗口开场(10:00)几乎重合，此刻列表里可能同时存在刚
+    过期的旧一期(已 CLAIMED)与新一期。若按返回顺序取首个匹配，会误判「今日已领」而
+    **静默漏领整天** —— 故优先挑「窗口覆盖当前时刻」的那期；若选中的是已过期一期，
+    等 WAIT_ROLL 秒重取一次。
   - 幂等: claimStatus=="CLAIMED" 直接跳过；重复 claim 返回**同一 grantId** 且
     replayed=true，服务端不重复发放 —— 可安全每天跑。
 
@@ -74,6 +78,7 @@ CTX.verify_mode = ssl.CERT_NONE
 ACTION_CLAIM = "CLAIM_BENEFIT"
 KIND_CREDITS = "CREDITS"
 DONE_STATUS = ("CLAIMED", "CONSUMED", "EXPIRED")
+WAIT_ROLL = 20  # 窗口切换（每日 10:00）时重取新一期的等待秒数
 
 
 def _user_data_dir():
@@ -162,15 +167,38 @@ def get_campaigns(token):
     return call("GET", "/sash/api/v1/me/campaigns", token, "campaigns")
 
 
-def pick_credits(campaigns):
-    """挑出每日 Credits 活动：CLAIM_BENEFIT + benefit.kind=CREDITS"""
-    for c in campaigns or []:
-        if c.get("actionType") != ACTION_CLAIM:
-            continue
-        b = c.get("benefit") or {}
-        if b.get("kind") == KIND_CREDITS:
-            return c
-    return None
+def _in_window(c, now):
+    """活动窗口是否覆盖当前时刻。缺窗口字段视为覆盖（服务端字段变更时保守放行）。"""
+    try:
+        return float(c.get("startAt")) <= now <= float(c.get("endAt"))
+    except (TypeError, ValueError):
+        return True
+
+
+def _window_over(c):
+    """窗口是否已过期（endAt 早于当前时刻）。"""
+    try:
+        return float(c.get("endAt")) < time.time()
+    except (TypeError, ValueError):
+        return False
+
+
+def pick_credits(campaigns, now=None):
+    """挑出每日 Credits 活动：CLAIM_BENEFIT + benefit.kind=CREDITS。
+
+    ★活动每日一期、每期 campaignId 是新的 UUIDv7；总控 10:00 跑与窗口开场(10:00 CST)
+    几乎重合，此刻列表里可能**同时存在刚过期的旧一期(已 CLAIMED)与新一期**——若按返回
+    顺序取首个匹配，就会误判「今日已领」而**静默漏领整天**。故优先挑「窗口覆盖当前时刻」
+    的那一期，取不到再回退到任意一期。
+    """
+    now = float(now) if now is not None else time.time()
+    cands = [c for c in (campaigns or [])
+             if c.get("actionType") == ACTION_CLAIM
+             and (c.get("benefit") or {}).get("kind") == KIND_CREDITS]
+    if not cands:
+        return None
+    live = [c for c in cands if _in_window(c, now)]
+    return (live or cands)[0]
 
 
 def _ts(v):
@@ -239,10 +267,33 @@ def _core(force=False):
         print("[跳过] 当前无每日 Credits 活动（可能已结束或未到窗口）")
         return 4
 
+    # ★窗口切换边界兜底：总控 10:00 跑、窗口也 10:00 开，此时拿到的可能仍是刚过期的一期
+    # （其 claimStatus 早已是 CLAIMED）。直接当「今日已领」跳过会漏领整天，故重取一次。
     status = item.get("claimStatus")
-    if status in DONE_STATUS and not force:
-        print("[跳过] 今日已领取（claimStatus=%s，每日 10:00 刷新下一期）" % status)
-        return 0
+    for _ in (0, 1):
+        if status in DONE_STATUS and not force:
+            if _window_over(item):
+                print("[窗口切换] 当前这期 %s 刚过期（至 %s）— 等 %ds 重取新一期..."
+                      % (item.get("campaignKey"), _ts(item.get("endAt")), WAIT_ROLL))
+                time.sleep(WAIT_ROLL)
+                st3, j3 = get_campaigns(token)
+                if st3 != 200:
+                    print("[失败] 重取 campaigns HTTP %s" % st3)
+                    return 3
+                it2 = pick_credits(j3.get("campaigns"))
+                if it2 and it2.get("campaignId") != item.get("campaignId"):
+                    item = it2
+                    print("[新一期] " + fmt_campaign(item))
+                    status = item.get("claimStatus")
+                    continue
+                if it2:
+                    print("[跳过] 重取后仍是同一期（claimStatus=%s）— 视为今日已领" % status)
+                    return 0
+                print("[跳过] 重取后无 CREDITS 活动 — 明日总控自动兜住")
+                return 4
+            print("[跳过] 今日已领取（claimStatus=%s，每日 10:00 刷新下一期）" % status)
+            return 0
+        break
 
     st2, r = do_claim(token, item["campaignId"])
     if st2 != 200:

@@ -243,7 +243,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★**活动每日一期**：窗口 = 北京时间当日 **10:00 ~ 次日 09:59**，每期 `campaignId` 是新的 UUIDv7 → **绝不能硬编码**，必须每次 GET campaigns 动态取；`campaignKey`（如 `act-20261013-847`）是模板 key，不随期变
 - 挑选：`actionType=="CLAIM_BENEFIT"` 且 `benefit.kind=="CREDITS"`（每日 100 那期；另有 REDEMPTION_CODE 需达成成就、VIEW_DETAILS 无权益，自动忽略）
 - ★幂等铁证：`claimStatus=="CLAIMED"` 直接跳过；重复 claim 返**同一 grantId** 且 `replayed=true`，服务端不重复发放 —— 可安全每天跑
-- 时序：总控也是 10:00 跑，故排「阿里系」链**最后**（链内串行天然延迟，规避窗口刚开的边界空转）
+- ★★**窗口切换边界（2026-10-15 修的静默漏领坑）**：总控 10:00 跑与窗口开场几乎重合，此刻列表里可能**同时存在刚过期的旧一期（已 CLAIMED）与新一期**，若按返回顺序取首个匹配就会误判「今日已领」而漏领整天。脚本已改为**优先挑「窗口覆盖当前时刻」的那期**，选中的若仍是刚过期一期则等 20s 重取一次。故排「阿里系」链**最后**（链内串行天然延迟，双重保险）
 - 断线症状：`auth.v1.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
 
 ---
