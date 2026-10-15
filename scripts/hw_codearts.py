@@ -44,6 +44,8 @@ hw_codearts.py — 华为码道 CodeArts Doer 每日领积分
   python hw_codearts.py probe      # status + 试探性 claim（拿到服务端原文，用于定位刷新时间）
   python hw_codearts.py auto       # 每日: delivery → claim → confirm
 """
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -51,13 +53,20 @@ import ssl
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
-from datetime import datetime
+from datetime import datetime, timezone
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 CFG_PATH = os.path.join(BASE, "hw_codearts_config.json")
 HOST = "https://devcloud.cn-north-4.huaweicloud.com"
 OPS = "/chat/PromptCenterService/v1/ops"
+# ★CodeArts Agent 桌面端走的是另一套网关：snap-access + IAM 临时 AK/SK 签名，
+#   完全不用浏览器 cookie（product.json.snapEngineUrl + workbench signer.js/huaweiRequestService）
+SNAP_HOST = "snap-access.cn-north-4.myhuaweicloud.com"
+SNAP_OPS = "/v1/ops"
+SNAP_CHANNEL = "IDE"          # 客户端福利面板实测用的就是这个 channel
+SNAP_SIGN_ALGO = "SDK-HMAC-SHA256"
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 
@@ -92,6 +101,149 @@ def cftk_from_cookie(cookie):
     """cftk 头 = cookie 里的 devclouddevuibjtcftk（home.html: cftk_cookie_key_cf2）"""
     m = re.search(r"devclouddevuibjtcftk=([^;]+)", cookie or "")
     return m.group(1).strip() if m else ""
+
+
+# ── 桌面端凭证（★免抓包主链路）────────────────────────────────────────────
+# CodeArts Agent 登录后把 IAM 临时凭证存进 VS Code 的 Secret Storage：
+#   %APPDATA%\codearts-agent\User\globalStorage\state.vscdb
+#   key   = secret://{"extensionId":"huaweicloud.authentication","key":"HuaweiCloudSession"}
+#   value = 外层 JSON {"type":"Buffer","data":[...]}，内层是 Chromium v10 信封
+#           （AES-256-GCM，主密钥在 <userData>\Local State 的 os_crypt.encrypted_key，DPAPI 解）
+#   字段 = accessKey/secretKey/securitytoken/expires_at/refresh_token/loginContext(PKCE+DPoP EC key)
+# 客户端访问权益接口时用 SDK-HMAC-SHA256 对请求签名（out-build/vs/platform/request/common/signer.js），
+# 全程不带浏览器 cookie —— 所以这条链路不会像 devcloud cookie 那样几天就失效。
+_CRED = {"tried": False, "cred": None, "why": ""}
+
+
+def _state_paths():
+    ud = os.environ.get("HW_CODEARTS_UD") or os.path.join(
+        os.environ.get("APPDATA", ""), "codearts-agent")
+    return (os.path.join(ud, "User", "globalStorage", "state.vscdb"), ud)
+
+
+def client_credential():
+    """返回 {accessKey, secretKey, securitytoken, expires_at} 或 None（并给原因）。"""
+    if _CRED["tried"]:
+        return _CRED["cred"]
+    _CRED["tried"] = True
+    db, ud = _state_paths()
+    if not os.path.isfile(db):
+        _CRED["why"] = "没找到 CodeArts Agent 的 state.vscdb（未安装/未登录/换机器：%s）" % db
+        return None
+    try:
+        import browser_cookies as bc
+        raw = bc.raw_read_shared(db)
+        if not raw:
+            _CRED["why"] = "state.vscdb 打不开（客户端独占锁）"
+            return None
+        import sqlite3
+        tmp = os.path.join(os.environ.get("TEMP", "."), "_hw_state.db")
+        with open(tmp, "wb") as f:
+            f.write(raw)
+        try:
+            con = sqlite3.connect(tmp)
+            try:
+                row = con.execute(
+                    "SELECT value FROM ItemTable WHERE key LIKE ?",
+                    ('%HuaweiCloudSession%',)).fetchone()
+            finally:
+                con.close()
+        finally:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        if not row:
+            _CRED["why"] = "state.vscdb 里没有 HuaweiCloudSession（客户端未登录）"
+            return None
+        v = row[0]
+        if isinstance(v, str):
+            v = v.encode("utf-8", "surrogateescape")
+        env = json.loads(v)
+        blob = bytes(env["data"]) if isinstance(env, dict) and "data" in env else v
+        d = json.loads(bc.decrypt_v10(bc.master_key(ud), blob).decode("utf-8"))
+        if not (d.get("accessKey") and d.get("secretKey")):
+            _CRED["why"] = "session 里没有 AK/SK（登录类型不支持该链路）"
+            return None
+        exp = d.get("expires_at") or ""
+        if exp:
+            try:
+                dt = datetime.strptime(exp[:19], "%Y-%m-%dT%H:%M:%S").replace(tzinfo=timezone.utc)
+                if dt <= datetime.now(timezone.utc):
+                    _CRED["why"] = "客户端凭证已过期（expires_at=%s）→ 打开 CodeArts Agent 让它续期" % exp
+                    return None
+            except ValueError:
+                pass
+        _CRED["cred"] = d
+        return d
+    except Exception as e:
+        _CRED["why"] = "读取桌面端凭证失败：%s: %s" % (type(e).__name__, str(e)[:120])
+        return None
+
+
+_UNRESERVED = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~")
+
+
+def _uq(s):
+    """signer.js 的 urlEncode：非 unreserved 字节按 %XX（大写）逐字节转义。"""
+    out = []
+    for ch in str(s):
+        if ord(ch) < 128 and ch in _UNRESERVED:
+            out.append(ch)
+        else:
+            out.append("".join("%%%02X" % b for b in ch.encode("utf-8")))
+    return "".join(out)
+
+
+def snap_headers(method, host, path, query, headers, body_bytes, ak, sk):
+    """照抄客户端 signer.js 的规范化：
+    ★X-Sdk-Date 必须先进入参与签名的 header 集合（漏了实测 401 APIG.0301
+      "header x-sdk-date not signed"）；
+    ★canonicalURI 按 '/' 分段转义后**末尾补一个 '/'**（/v1/ops/delivery → /v1/ops/delivery/）。"""
+    t = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    h = {k.lower(): str(v).strip() for k, v in headers.items()}
+    h["x-sdk-date"] = t
+    signed = sorted(h)
+    uri = "/".join(_uq(seg) for seg in path.split("/"))
+    if not uri.endswith("/"):
+        uri += "/"
+    qs = "&".join("%s=%s" % (_uq(k), _uq(query[k])) for k in sorted(query))
+    payload = h.get("x-sdk-content-sha256") or hashlib.sha256(body_bytes or b"").hexdigest()
+    canon = "\n".join([method.upper(), uri, qs,
+                       "".join("%s:%s\n" % (k, h[k]) for k in signed),
+                       ";".join(signed), payload])
+    msg = "%s\n%s\n%s" % (SNAP_SIGN_ALGO, t, hashlib.sha256(canon.encode("utf-8")).hexdigest())
+    sig = hmac.new(sk.encode("utf-8"), msg.encode("utf-8"), hashlib.sha256).hexdigest()
+    out = dict(headers)
+    out["X-Sdk-Date"] = t
+    out["Authorization"] = "%s Access=%s, SignedHeaders=%s, Signature=%s" % (
+        SNAP_SIGN_ALGO, ak, ";".join(signed), sig)
+    return out
+
+
+def _snap_once(method, path, cred, body=None):
+    p = urllib.parse.urlsplit("https://%s%s" % (SNAP_HOST, path))
+    query = dict(urllib.parse.parse_qsl(p.query))
+    data = json.dumps(body, ensure_ascii=False).encode("utf-8") if body is not None else None
+    h = {"Host": SNAP_HOST,
+         "Accept": "application/json",
+         "User-Agent": UA,
+         "Agent-Type": "PromptCenter",       # 客户端 welfare 请求固定带
+         "X-Language": "zh-cn",
+         "X-Security-Token": cred.get("securitytoken") or ""}
+    if data is not None:
+        h["Content-Type"] = "application/json"
+    signed = snap_headers(method, SNAP_HOST, p.path, query, h, data or b"",
+                          cred["accessKey"], cred["secretKey"])
+    url = "https://%s%s" % (SNAP_HOST, p.path + (("?" + p.query) if p.query else ""))
+    req = urllib.request.Request(url, data=data, headers=signed, method=method)
+    try:
+        r = urllib.request.urlopen(req, timeout=25)
+        return r.status, r.read().decode("utf-8", "replace")
+    except urllib.error.HTTPError as e:
+        return e.code, e.read().decode("utf-8", "replace")
+    except Exception as e:
+        return -1, str(e)
 
 
 # ── HTTP ──────────────────────────────────────────────────────────────────
@@ -129,18 +281,36 @@ def _once(method, path, cookie, cftk, body=None):
 
 
 def call(method, path, cookie, cftk, body=None):
-    """照前端 W5t/SRt: HTTP 500/429 退避重试 1s/2s/4s，最多 3 次"""
-    st, raw = _once(method, path, cookie, cftk, body)
+    """★优先 snap-access + 桌面端 AK/SK 签名（免抓包、不随 cookie 过期）；
+       只有读不到客户端凭证时才回退 devcloud 的 cookie/cftk 链路。
+       两条链路响应形状一致（{code, data}）。照前端 W5t/SRt：HTTP 500/429 退避 1s/2s/4s。"""
+    cred = client_credential()
+    if cred:
+        name = path.rsplit("/", 1)[-1].split("?")[0]
+        b = dict(body) if isinstance(body, dict) else body
+        # channel 只跟着「本来就带 channel 的请求」走：claim 带、confirm 不带
+        # （实测给 confirm 硬塞 channel 会 HTTP 400，与客户端两处实现一致）
+        if isinstance(b, dict) and "channel" in b:
+            b["channel"] = SNAP_CHANNEL
+        # ★GET 把 channel 放 query；POST 必须只放 body —— 实测 POST 再带 ?channel= 会被
+        #   服务端判成 channel 校验失败（HTTP 400 HDN.1000 "channel : unknown exception"）。
+        sp = ("%s/%s?channel=%s" % (SNAP_OPS, name, SNAP_CHANNEL)
+              if method.upper() == "GET" else "%s/%s" % (SNAP_OPS, name))
+        once = lambda: _snap_once(method, sp, cred, b)
+    else:
+        once = lambda: _once(method, path, cookie, cftk, body)
+    st, raw = once()
     for delay in (1, 2, 4):
         if st not in (500, 429):
             break
         time.sleep(delay)
-        st, raw = _once(method, path, cookie, cftk, body)
+        st, raw = once()
     try:
         j = json.loads(raw)
     except Exception:
-        # 空响应/HTML 都归到这里：把形态留在 "raw" 里，别让上层只能猜
         j = {"raw": raw[:300], "_shape": _shape(raw)}
+    if isinstance(j, dict):
+        j["_auth"] = "snap-access/AK-SK" if cred else "devcloud/cookie"
     return st, j
 
 
@@ -251,17 +421,23 @@ def cmd_init():
 
 
 def _core(try_claim_even_if_not_claimable=False):
-    cfg = load_cfg()
-    if not cfg or not cfg.get("cookie"):
-        print("[失败] 未配置 cookie —【华为码道失效】需 init(F12 抓 cookie)")
+    cfg = load_cfg() or {}
+    cred = client_credential()
+    if not cred and not cfg.get("cookie"):
+        print("[失败] 读不到 CodeArts Agent 桌面端凭证（%s），且未配 cookie"
+              " —【华为码道失效】装了该客户端并保持登录即可免抓包" % _CRED["why"])
         return 2
-    cookie = cfg["cookie"]
+    cookie = cfg.get("cookie") or ""
     cftk = cfg.get("cftk") or cftk_from_cookie(cookie)
     cid = str(cfg.get("campaign_id") or "1")
+    print("[鉴权] %s" % (("snap-access + 桌面端 AK/SK（免抓包）expires_at=%s"
+                          % (cred.get("expires_at") or "?")) if cred
+                         else "devcloud cookie/cftk（抓包）"))
 
     st, data, why = get_delivery(cookie, cftk)
     if data is None:
-        print("[失败] delivery %s —【华为码道失效】cookie 需重抓" % why)
+        print("[失败] delivery %s —【华为码道失效】%s"
+              % (why, "在 CodeArts Agent 里重新登录一次即可续上" if cred else "cookie 需重抓"))
         return 3
 
     items = data.get("items") or []

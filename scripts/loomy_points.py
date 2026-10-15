@@ -22,6 +22,7 @@ import json
 import os
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime
@@ -61,17 +62,23 @@ def get(path, cookie):
                        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"),
         "referer": HOST + "/chat",
     })
-    try:
-        r = urllib.request.urlopen(req, timeout=25, context=CTX)
-        return r.status, json.loads(r.read().decode("utf-8", "replace"))
-    except urllib.error.HTTPError as e:
-        raw = e.read()
+    for attempt in (1, 2):
         try:
-            return e.code, json.loads(raw.decode("utf-8", "replace"))
-        except Exception:
-            return e.code, {"raw": raw.decode("utf-8", "replace")[:200]}
-    except Exception as e:
-        return -1, {"message": "网络异常 %s" % e}
+            r = urllib.request.urlopen(req, timeout=25, context=CTX)
+            return r.status, json.loads(r.read().decode("utf-8", "replace"))
+        except urllib.error.HTTPError as e:
+            raw = e.read()
+            try:
+                return e.code, json.loads(raw.decode("utf-8", "replace"))
+            except Exception:
+                return e.code, {"raw": raw.decode("utf-8", "replace")[:200]}
+        except Exception as e:
+            # 纯传输层抖动（read timeout / 连接重置）重试一次再判失败，
+            # 否则一次网络打嗝就让总控把整个 Loomy 报成【失效】
+            if attempt == 1:
+                time.sleep(3)
+                continue
+            return -1, {"message": "网络异常 %s（已重试 1 次）" % e}
 
 
 def fmt_data(d):

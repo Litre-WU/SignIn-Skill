@@ -2,7 +2,7 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -29,7 +29,7 @@ description: 一站式签到/领券综合工具，整合19个已抓包验证的�
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | **阿里系（3 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 ③Qoder CN 每日 100 Credits（30 天有效）：★凭证在桌面端 `auth.v1.dat`（**同一套 v10 解密链**）；campaigns 动态发现 + claim，服务端幂等 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
-| 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。三步链路：`ops/delivery` 查 `claimable` → `ops/claim`（idempotentKey `claim_<id>_<ms>`）→ `ops/confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 |
+| 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；没装客户端才回退 devcloud cookie。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
@@ -139,7 +139,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 ### 6) 京东京豆（Web 端，2026-10-12 自行逆向）
 
 **无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
-脚本每次运行都从浏览器磁盘 Cookies 库**实时提取最新 cookie**，所以只要浏览器里京东是登录态，签到就全自动。
+脚本按**新鲜度**三级取 cookie：① CDP 9222 实时读（浏览器开着时唯一能拿到"刚刚登录"的新值）→ ② 磁盘直读（浏览器没在跑时）→ ③ TEMP 快照（可能陈旧，脚本会打印它多少分钟前、并在 `login_expired` 里带纠正提示）。
+★**浏览器正在运行时磁盘 `Cookies` 库是独占锁的，谁都拷不动**（2026-10-15 实测：`CreateFileW(SHARE_ALL)` err=32、`esentutl /y` 回 `-1032 JET_errFileAccessDenied`（加 `/v` 还会挂死）、`robocopy /B`、`cmd copy`、Python `open` 全部失败）—— 所以"刚重新登录却仍 login_expired"通常是**读到了旧快照**，不是服务端拒绝：要么关掉 Thorium 再跑，要么用 `thorium.exe --remote-debugging-port=9222` 启动让 CDP 那条路生效。
 
 - 页面：`https://bean.jd.com/myJingBean/list`（SPA；老的 `/bean/index`、`/bean/signIndex.action` 已 404 下线）
 - 查询：`GET api.m.jd.com/?functionId=pc_interact_sign_query&type=1` → 拿 `eaId`/`activityId`/连签天数/今日是否已签
@@ -229,16 +230,27 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★实测结论：免费版每日 100 积分是**服务端自动发放**（当日有效，`valid_to`=次日 00:00），桌面端无手动领取动作；前端 bundle 里的 `/sash/api/v1/me/daily-check-in/{status,claim}` 在**生产网关未路由（404）**，脚本探测到 404 自动跳过、走钱包核对
 - 断线症状：`auth-v2.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
 
-### 15) 华为码道 CodeArts Doer（2026-10-14 建成）
+### 15) 华为码道 CodeArts Doer（2026-10-14 建成，2026-10-15 改为免抓包）
 
-抓包：浏览器登录 `devcloud.cn-north-4.huaweicloud.com/chat/home` → F12 → Network 任意 `PromptCenterService` 请求 → 复制**整行 cookie 头** → `python scripts/hw_codearts.py init '<cookie>'`。
+**★首选：读 CodeArts Agent 桌面端登录态，不需要抓包、也不会再因 cookie 过期而失效。**
+只要本机装了 CodeArts Agent 并且处于已登录状态，`hw_codearts.py` 会自动：
+`%APPDATA%\codearts-agent\User\globalStorage\state.vscdb` 取
+`secret://{"extensionId":"huaweicloud.authentication","key":"HuaweiCloudSession"}`
+→ 外层是 VS Code 的 `{"type":"Buffer","data":[…]}`，内层是 Chromium **v10** 信封
+（AES-256-GCM，主密钥在 `<userData>\Local State` 的 `os_crypt.encrypted_key`，去 DPAPI 5B 头）
+→ 得到 IAM **临时 AK/SK + X-Security-Token + expires_at**，用它按 `SDK-HMAC-SHA256` 签名请求。
+换机器/换用户名无需改代码：`HW_CODEARTS_UD` 可覆盖 userData 路径。
 
-- ★必须先去掉 `x-requested-with: XMLHttpRequest` 才能拿到 `/chat/home` 页面（带该头网关一律按 API 路由 → 404）
-- 接口族（从前端 `index.js` + `DefaultLayout` chunk 反查）：`GET ops/delivery?channel=WEB`、`POST ops/claim`、`POST ops/confirm`、`POST ops/invite/generate`、`POST ops/invite/confirm-by-code?inviteCode=`、`GET ops/tasks/conversation`、`POST ops/events/conversation`
-- `cftk` 头 = cookie 里的 `devclouddevuibjtcftk`（`home.html` 明示 `app_cookie_prefix=cftk`），脚本自动提取
+- 桌面端用的网关**不是** devcloud：`https://snap-access.cn-north-4.myhuaweicloud.com/v1/ops/{delivery,claim,confirm,invite/generate,tasks/conversation,events/conversation}`，`channel=IDE`（实测 IDE 与 WEB 两个 channel 的 delivery 返回完全一致）
+- ★签名两个必须照抄的细节（错一个就 401/400）：`X-Sdk-Date` 要**先放进参与签名的 header 集合**再算 SignedHeaders（漏了 APIG 报 `401 APIG.0301 header x-sdk-date not signed`）；canonicalURI 按 `/` 分段转义后**末尾补一个 `/`**（`/v1/ops/delivery` → `/v1/ops/delivery/`）
+- ★`channel` 只在 GET 进 query、在 POST 进 body：**claim 的 body 带 channel，confirm 的不带**；给 confirm 硬塞 channel 会 `HTTP 400 HDN.1000 "channel : unknown exception"`；给 POST 再挂 `?channel=` 同样 400
+- 凭证寿命：`expires_at` 实测约 2 小时，客户端在跑就会自动续（`safelyRenewTokenInterval`≈1 小时）；过期时脚本读不到可用凭证会直接说明「在 CodeArts Agent 里重新登录一次即可续上」，不用抓包
+- 客户端登录链路（逆向留档，`resources/app` 未打包可直接读）：`extensions/huaweicloud.authentication/dist/plugin.js` 走 PKCE OAuth —— `https://codearts.huaweicloud.com/portal/authorize?...&uri_scheme=codearts-agent&port=<本地端口>`，`auth.huaweicloud.com/authui/login.html` 联邦登录，本地 `http://127.0.0.1:<10000+/oauth/callback>` 接 code，再 `POST https://sts.cn-north-4.myhuaweicloud.com/v1/oauth2/tokens`（带 **DPoP** JWE，EC P-256 密钥对存在 session 的 `loginContext.dpopKeyPair`）换 AK/SK/SecurityToken；`refresh_token` 用于 `grant_type=refresh_token`。会话结构字段：`account{id,label} / accessKey / secretKey / securitytoken / expires_at / domainId / refresh_token / loginContext{pkcePair,dpopKeyPair}`，`accessToken` 为空（HC 场景不靠 Bearer）
+- **兜底（没装客户端才用）**：抓 `devcloud.cn-north-4.huaweicloud.com` 的 `PromptCenterService` 请求整行 cookie → `python scripts/hw_codearts.py init '<cookie>'`，走 `/chat/PromptCenterService/v1/ops` + `cftk` 头。★抓页面必须先去掉 `x-requested-with: XMLHttpRequest`（带着它网关一律按 API 路由 → 404）；`cftk` = cookie 里的 `devclouddevuibjtcftk`，脚本自动提取
 - 活动清单：id=1 每日签到 1000 积分（`USER_LOGIN`）、id=2 学生认证 4000（需先认证，直领返 40001「需要先通过触发接口激活」）、id=3 邀请 1000/人、id=4 新用户注册 4000（`AUTO_GRANT`）
 - ★两步不可省：`claim` → `CLAIMED`，`confirm` → `CONFIRMED`（积分才入账），confirm 返回 `totalAmount/remainingAmount/expireAt`（30 天有效）
 - 幂等：`claimable=false` + `status=CONFIRMED` = 今日已领；硬提交返 HTTP200 + `code:40001「尚未到达权益刷新时间，暂时无法领取」`
+- 脚本每次会打印 `[鉴权] snap-access + 桌面端 AK/SK（免抓包）expires_at=…` 或 `[鉴权] devcloud cookie/cftk（抓包）`，据此判断走的哪条链路
 
 ### 16) Qoder CN（阿里系，2026-10-15 建成）
 
@@ -312,10 +324,13 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | Qoder CN 提示「服务端返回空活动列表」 | `cosy-clienttype` 头缺失时服务端按客户端类型过滤活动（不报错但 `campaigns:[]`） | 脚本已固定发送 `cosy-clienttype: 10`；若仍空列表，检查是否到了每日 10:00 窗口、或活动是否下线 |
 | Qoder CN「已领取」但积分没到账 | 服务端 `claimStatus=CLAIMED` 即已发放；重复 claim 返同一 grantId + `replayed=true` | 正常幂等；去 Qoder CN 活动页核对，或用 `probe` 强制提交看服务端原文 |
 | ★凭证同步 `[中断] 浏览器启动失败或 9222 不可达`（rc=2）、同轮**掘金也跟着失败** | 你自己的 Thorium 正开着但没带 `--remote-debugging-port`。Chromium 的 profile 是**单例**的：用同一个 `User Data` 再起 headless，新进程只会把启动请求移交给已运行实例后退出，9222 永远不监听（2026-10-15 实测第 0/8 步双双超时） | 已修复——`headless_browser.py` 检测到实例在跑就改用**独立临时 profile**（`%TEMP%\wb_th_*`）并从磁盘 Cookie 库注入登录态；收尾按临时 profile 精准回收，不碰你的窗口 |
-| 临时 profile 兜底时只有 2/3 同步成功，**办公小浣熊报 `raccoon_token` 缺失** | `raccoon_token` / `raccoon_refresh_token` 是**会话级 cookie**（Chromium 不落盘），磁盘 Cookie 库里根本没有，临时 profile 注入不到 | 非「用户没登录」。要同步小浣熊必须让浏览器**带着 9222 启动**（`thorium.exe --remote-debugging-port=9222`）再跑 `cookie_sync.py`；否则该家沿用 config 里的旧 token，到期才需处理 |
-| 华为码道 `[失败] delivery HTTP 200 但空响应体` | 华为云网关/WAF 在**登录态失效**时就回 200 + 零字节（不是 JSON、也不是 401），旧版只说「HTTP 200」等于没法定位 | 已修复：`fail_reason()` 区分「明确拒绝 / 业务码 401 / 空响应体 / HTML 跳转登录页」；空 body 一律按 cookie 失效处理，F12 重抓 `PromptCenterService` 请求的整行 cookie 跑 `init` |
+| `headless-shell` 模式下只有 2/3 同步成功，**办公小浣熊报 `raccoon_token` 缺失**（真实 profile 的 headless 也一样） | `raccoon_token` / `raccoon_refresh_token` 是**会话级 cookie**（Chromium 不落盘），磁盘 Cookie 库里根本没有，临时 profile 注入不到 | 非「用户没登录」。脚本已按结构性限制返回 rc=0 + `[说明]`。要真正同步小浣熊，必须**你自己用 `thorium.exe --remote-debugging-port=9222` 开着浏览器**再跑 `cookie_sync.py`；否则该家沿用 config 里的旧 token，到期才需处理 |
+| 华为码道 `[失败] delivery HTTP 200 但空响应体` | 华为云网关/WAF 在**登录态失效**时就回 200 + 零字节（不是 JSON、也不是 401），旧版只说「HTTP 200」等于没法定位 | `fail_reason()` 已能区分「明确拒绝 / 业务码 401 / 空响应体 / HTML 跳登录页」。装了 CodeArts Agent 的正常机器**不会再走 cookie 链路**（脚本首行 `[鉴权]` 会写明用的哪条）；真在回退链路上报这个，才需要 F12 重抓 `PromptCenterService` 的整行 cookie 跑 `init` |
+| 华为码道 `[失败] 读不到 CodeArts Agent 桌面端凭证（…）` | 三种原因：没装该客户端（没有 `%APPDATA%\codearts-agent\User\globalStorage\state.vscdb`）／客户端未登录（没有 `HuaweiCloudSession` 条目）／IAM 临时凭证 `expires_at` 已过期（约 2 小时，客户端在跑才自动续） | 打开 CodeArts Agent 登录一次即可（客户端运行中会把 `state.vscdb` 独占锁住，脚本走 `CreateFileW` 共享读复制，不需要你关窗口）；换机器用 `HW_CODEARTS_UD` 指到实际 userData；实在没有客户端就回退 `hw_codearts.py init '<cookie>'` |
+| 华为码道 claim/confirm `HTTP 400 HDN.1000 "channel : unknown exception"` | 服务端按 DTO 逐字段校验：`claim` 的 body **要** `channel`，`confirm` 的 body **不能带** `channel`；反过来给 POST 再挂 `?channel=` query 也会 400 | 已按客户端两处实现校准：GET 只放 query、POST 只放 body 且仅 claim 带 channel |
+| 华为码道签名报 `401 APIG.0301 header x-sdk-date not signed` | `X-Sdk-Date` 没进参与签名的 header 集合（signer.js 是先写 header 再算 SignedHeaders） | 已修复；另注意 canonicalURI 末尾必须补 `/` |
 | 华为码道「今日不可领」`claimable=false` 且 status 非已领 | 权益刷新周期**不是自然日**（实测 confirm 显示 claimedAt=09-27 后长期不可领） | 业务态不是失效，脚本已返回 0 并标注【今日不可领】，别再当日误报异常；`probe` 可看服务端 40001 原文 |
-| 京东明明重新登录了，仍持续 `login_expired`（曾连挡两天） | 两个旧缺陷：① 新版 Chromium **稳定独占** `Cookies` 库，`CreateFileW(SHARE_ALL)` 也读不到；② `manual=true` 配置一旦写入就短路整条提取链（TEMP 缓存只在直读成功时刷新，而直读被短路永不执行） | 已修复（2026-10-14）：直读失败转 **`esentutl.exe /y <Cookies> /d <副本> /o`** 拿完整快照；`manual` 加 **6h TTL** 后回落正常提取链。核对跑 `jd_web_signin.py cookie` 看「磁盘直读 OK」 |
+| 京东明明重新登录了，仍持续 `login_expired`（曾连挡两天） | ① `manual=true` 配置一旦写入就**永久短路**整条提取链（TEMP 缓存只在直读成功时刷新，而直读被短路永不执行）；② Thorium 在跑时 `Cookies` 库是**独占锁**，任何用户态拷贝都失败（`CreateFileW` err=32、`esentutl /y` `-1032 JET_errFileAccessDenied`（`/v` 还会挂死）、`robocopy /B`、`cmd copy`、Python `open` 实测全不行）→ 静默退回**陈旧 TEMP 快照**；③ 旧版 esentutl 静默失败还等满 120s | 已修（2026-10-15）：`manual` 加 **6h TTL**；取源按新鲜度排序 **CDP 9222 → 磁盘直读 → TEMP 快照**；esentutl 超时降到 20s 并**打印失败原文**；用陈旧快照时 `login_expired` 自带"×分钟前快照，别误判未登录"提示。**真正的解法只有两条**：关掉 Thorium 再跑，或用 `thorium.exe --remote-debugging-port=9222` 启动。核对：`jd_web_signin.py cookie` 会打印用的是哪一级 |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 

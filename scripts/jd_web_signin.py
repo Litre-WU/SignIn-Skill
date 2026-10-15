@@ -150,11 +150,17 @@ def _read_cookies_db(path):
     return best
 
 
-def _esentutl_copy(src, dst):
-    """用 esentutl 备份语义复制被 Chromium 独占锁(ERROR_SHARING_VIOLATION, err=32)的 Cookies 库。
+COOKIE_SRC = {"name": "", "age_min": 0}   # 本次 cookie 到底从哪拿到的（判读要用）
 
-    CreateFileW(SHARE_ALL) 在新版 Chromium 上已稳定失败（进程持续持有句柄），
-    esentutl /y 走 ESE 备份 API，实测可 100% 复制出完整一致快照（2026-10-14 验证）。
+
+def _esentutl_copy(src, dst):
+    """用 esentutl 备份语义复制被 Chromium 独占锁的 Cookies 库。
+
+    ★2026-10-15 实测纠正旧结论："esentutl 100% 可复制"只在**浏览器没在跑**时成立：
+      Thorium 运行时它回 `-1032 JET_errFileAccessDenied`，加 /v 还会挂死；
+      robocopy /B、cmd copy、Python open 同样"另一个程序正在使用此文件"。
+      所以这里必须带短超时并**把失败原因带出来**（旧版静默 False → 上层悄悄退回陈旧快照，
+      表现为"明明刚重新登录却一直 login_expired"）。返回 (ok, 说明)。
     """
     import subprocess
     try:
@@ -164,15 +170,19 @@ def _esentutl_copy(src, dst):
             except OSError:
                 pass
         r = subprocess.run(["esentutl.exe", "/y", src, "/d", dst, "/o"],
-                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-                           timeout=120)
-        return (r.returncode == 0 and os.path.isfile(dst)
-                and os.path.getsize(dst) > 0)
-    except Exception:
-        return False
+                           capture_output=True, text=True, timeout=20)
+        out = ((r.stdout or "") + (r.stderr or "")).strip()
+        if r.returncode == 0 and os.path.isfile(dst) and os.path.getsize(dst) > 0:
+            return True, "复制 %dB" % os.path.getsize(dst)
+        tail = " | ".join(l.strip() for l in out.splitlines() if l.strip())[-160:]
+        return False, "rc=%s %s" % (r.returncode, tail or "无输出")
+    except subprocess.TimeoutExpired:
+        return False, "esentutl 20s 超时（锁未释放）"
+    except Exception as e:
+        return False, "%s: %s" % (type(e).__name__, str(e)[:120])
 
 
-def _raw_read(ck_path):
+def _raw_read(ck_path, verbose=False):
     import ctypes
     import tempfile
     from ctypes import wintypes, POINTER, c_char, create_string_buffer, byref
@@ -187,7 +197,7 @@ def _raw_read(ck_path):
                              POINTER(wintypes.DWORD), wintypes.LPVOID]
     k32.CloseHandle.argtypes = [wintypes.HANDLE]
 
-    for attempt in range(8):                       # 先试共享读（快路径，约 10s）
+    for attempt in range(3):                        # 独占锁不会因为多等 10s 就放开，3 次足够
         h = k32.CreateFileW(ck_path, 0x80000000, 0x00000007, None, 3, 0, None)
         if h and h != wintypes.HANDLE(-1).value:
             size = k32.GetFileSize(h, None)
@@ -200,9 +210,12 @@ def _raw_read(ck_path):
             return raw
         time.sleep(1.2)
 
-    # 独占锁稳定持有（新版 Chromium 常态）→ esentutl 备份语义复制
+    # 快路径失败 → esentutl 备份语义（失败也不再静默，把原因留给 verbose/上层）
     snap = os.path.join(tempfile.gettempdir(), "_jd_ck_vss.db")
-    if _esentutl_copy(ck_path, snap):
+    ok, why = _esentutl_copy(ck_path, snap)
+    if verbose:
+        print("[cookie] 直读失败(%s)，原因：%s" % ("独占锁 err=32", why))
+    if ok:
         try:
             with open(snap, "rb") as f:
                 raw = f.read()
@@ -276,39 +289,61 @@ def _cdp_cookies():
 
 
 def extract_cookies(verbose=False):
-    """按优先级取 .jd.com 登录 cookie：磁盘直读 → TEMP 缓存 → CDP 9222。"""
+    """取 .jd.com 登录 cookie，按**新鲜度**排序的三级来源：
+      1) CDP 9222 实时读（唯一能在浏览器开着时拿到"刚刚登录"的新 cookie）
+      2) 磁盘直读（浏览器没在跑时可用；跑着会被独占锁挡住）
+      3) TEMP 快照（可能陈旧，调用方据此改判读，不要一律当"用户没登录"）
+    ★2026-10-15 实测纠正：Thorium 在跑时 Cookies 库谁都拷不动 —— CreateFileW(SHARE_ALL)、
+      esentutl /y（JET_errFileAccessDenied -1032，/v 还会直接挂死）、robocopy /B、cmd copy
+      全部失败，所以"esentutl 100% 可复制"只对"浏览器没开着"的场景成立。
+    """
     ud = _browser_ud()
     if not ud:
         raise RuntimeError("未找到浏览器 User Data 目录（设 JD_BROWSER_UD 指定）")
     ck_path = os.path.join(ud, "Default", "Network", "Cookies")
 
+    ck = _cdp_cookies()
+    if ck and ck.get("thor"):
+        COOKIE_SRC.update(name="cdp", age_min=0)
+        if verbose:
+            print("[cookie] CDP 9222 实时读取 %d 个" % len(ck))
+        return ck
+
     if os.path.isfile(ck_path):
-        raw = _raw_read(ck_path)
+        raw = _raw_read(ck_path, verbose=verbose)
         if raw:
+            COOKIE_SRC.update(name="disk", age_min=0)
             if verbose:
                 print("[cookie] 磁盘直读 OK %d 字节" % len(raw))
             return _read_cookies_db_bytes(raw)
-        if verbose:
-            print("[cookie] 磁盘被独占锁，转 TEMP 缓存 / CDP")
 
     tmp = os.path.join(os.environ.get("TEMP", ""), "_jd_ck.db")
     if os.path.isfile(tmp):
         try:
             ck = _read_cookies_db(tmp)
             if ck.get("thor"):
+                age = int((time.time() - os.path.getmtime(tmp)) / 60)
+                COOKIE_SRC.update(name="temp_cache", age_min=age)
                 if verbose:
-                    print("[cookie] 用 TEMP 缓存（%s）" % time.strftime(
-                        "%m-%d %H:%M", time.localtime(os.path.getmtime(tmp))))
+                    print("[cookie] 浏览器在跑、cookie 库拷不动 → 退回 TEMP 快照（%d 分钟前，"
+                          "%s）；刚重新登录过的话这个快照是旧的"
+                          % (age, time.strftime("%m-%d %H:%M",
+                                                time.localtime(os.path.getmtime(tmp)))))
                 return ck
         except Exception:
             pass
 
-    ck = _cdp_cookies()
-    if ck and ck.get("thor"):
-        if verbose:
-            print("[cookie] 用 CDP 9222 实时读取 %d 个" % len(ck))
-        return ck
-    raise RuntimeError("无法读取京东 cookie（磁盘锁 + 无缓存 + 9222 未开）")
+    raise RuntimeError("无法读取京东 cookie（9222 未开 + 磁盘独占锁 + 无 TEMP 快照）")
+
+
+def stale_hint():
+    """login_expired 时的判读纠正：陈旧快照导致的失效不是用户没登录。"""
+    if COOKIE_SRC.get("name") == "temp_cache" and COOKIE_SRC.get("age_min", 0) > 5:
+        return ("；但本次用的是 %d 分钟前的磁盘快照 —— Thorium 正在运行时 Cookies 库被独占锁"
+                "（esentutl / robocopy /B / cmd copy 实测都拷不动），若你刚重新登录过，"
+                "请**关掉 Thorium 再跑一次**，或用 `thorium.exe --remote-debugging-port=9222` "
+                "启动后重跑，别误判成未登录" % COOKIE_SRC["age_min"])
+    return ""
 
 
 def _read_cookies_db_bytes(raw):
@@ -611,7 +646,7 @@ def run_auto(force=False):
     if _is_login_err(q):
         return {"ok": False, "state": "login_expired",
                 "msg": "京东登录态失效（服务端 code=3 请先登录）：请在 Thorium 浏览器打开 jd.com 重新登录，"
-                       "下次运行会自动读取新 cookie"}
+                       "下次运行会自动读取新 cookie" + stale_hint()}
     stt = parse_sign_state(q)
     if not stt.get("ok"):
         return {"ok": False, "state": "query_bad", "msg": stt.get("msg")}
@@ -639,7 +674,8 @@ def run_auto(force=False):
 
     if _is_login_err(r3):
         res.update({"ok": False, "state": "login_expired",
-                    "msg": "京东登录态失效（服务端 code=3 请先登录）：请在 Thorium 浏览器打开 jd.com 重新登录"})
+                    "msg": "京东登录态失效（服务端 code=3 请先登录）：请在 Thorium 浏览器打开 jd.com 重新登录"
+                           + stale_hint()})
     elif code == "302" or "已完成" in msg:
         res.update({"ok": True, "state": "already", "beans": 0,
                     "msg": "今日已签到（服务端返回任务已完成）"})
@@ -661,7 +697,7 @@ def run_status():
         return {"ok": False, "state": "http_%s" % st, "msg": json.dumps(q, ensure_ascii=False)[:300]}
     if _is_login_err(q):
         return {"ok": False, "state": "login_expired",
-                "msg": "京东登录态失效：请在 Thorium 浏览器打开 jd.com 重新登录"}
+                "msg": "京东登录态失效：请在 Thorium 浏览器打开 jd.com 重新登录" + stale_hint()}
     stt = parse_sign_state(q)
     if not stt.get("ok"):
         return {"ok": False, "state": "query_bad", "msg": stt.get("msg")}
@@ -902,7 +938,7 @@ def run_interact_auto(force=False):
             continue
         if code in ("3", "-100"):
             res.update({"ok": False, "state": "login_expired",
-                        "msg": "京东登录态失效：请在 Thorium 重新登录 jd.com"})
+                        "msg": "京东登录态失效：请在 Thorium 重新登录 jd.com" + stale_hint()})
             return res
         # 其他错误（如 999 火爆）停止重试，避免触发风控
         res["draw_note"] = "code=%s %s" % (code, d.get("msg"))

@@ -39,7 +39,35 @@ import sqlite3
 import tempfile
 import time
 
-__all__ = ["extract", "extract_full", "browser_ud", "cookie_header", "probe_domains"]
+__all__ = ["extract", "extract_full", "browser_ud", "cookie_header", "probe_domains",
+           "master_key", "decrypt_v10", "raw_read_shared"]
+
+
+def master_key(ud):
+    """公开入口：某 Electron/Chromium 用户数据目录的 32B AES 主密钥
+    （Local State → os_crypt.encrypted_key → 去 DPAPI 5B 头 → CryptUnprotectData）。
+    桌面端把 token 存成 v10 信封时也走这条链（千问办公 auth-v2.dat / Qoder auth.v1.dat /
+    CodeArts Agent state.vscdb 里的 HuaweiCloudSession 都是同一套）。"""
+    return _master_key(ud)
+
+
+def decrypt_v10(key, blob):
+    """解密 Chromium v10 信封（"v10" + 12B nonce + ciphertext+tag）→ 明文字节。"""
+    if not blob or blob[:3] != b"v10":
+        raise ValueError("不是 v10 信封（前缀 %r）" % (bytes(blob[:3]) if blob else b""))
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    return AESGCM(key).decrypt(blob[3:15], blob[15:], None)
+
+
+def raw_read_shared(path, retries=6, pause=0.5):
+    """共享读一个可能被运行中进程独占锁定的文件（state.vscdb / Cookies 等）。
+    失败返回 None，调用方自行决定回退策略。"""
+    for _ in range(retries):
+        raw = _raw_read(path, retries=1, pause=pause)
+        if raw:
+            return raw
+        time.sleep(pause)
+    return None
 
 SHARE_READ = 0x00000001
 SHARE_WRITE = 0x00000002
