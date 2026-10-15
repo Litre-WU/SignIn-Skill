@@ -1,0 +1,6 @@
+{
+  "token": "<可选兜底：Qoder CN 桌面端 device token（dt- 开头），缺省时实时读 %APPDATA%/com.qodercn.app.stable/auth.v1.dat>",
+  "refreshToken": "<可选：drt- 开头的刷新 token>",
+  "user": "<你的user>",
+  "updated": "<你的updated>"
+}

@@ -1,5 +1,5 @@
 {
-  "cookie": "<你的cookie>",
-  "cftk": "<你的cftk>",
-  "campaign_id": "<你的campaign_id>"
+  "cookie": "<登录 devcloud.cn-north-4.huaweicloud.com/chat/home 后 F12 抓任意 PromptCenterService 请求的整行 Cookie 头>",
+  "cftk": "<Cookie 里的 devclouddevuibjtcftk，留空会自动从 cookie 提取>",
+  "campaign_id": "1"
 }

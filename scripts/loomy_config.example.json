@@ -1,4 +1,4 @@
 {
-  "cookie": "<你的cookie>",
-  "cookie_updated": "<你的cookie_updated>"
+  "cookie": "<F12 抓任意 /api/ 请求的整行 Cookie 头>",
+  "cookie_updated": "<ISO时间>"
 }

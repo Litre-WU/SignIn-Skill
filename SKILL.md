@@ -2,12 +2,12 @@
 name: 签到啦
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合18个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十八个**已抓包验证**的自动化入口（18 个脚本，按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合十九个**已抓包验证**的自动化入口（19 个脚本，按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -19,13 +19,13 @@ description: 一站式签到/领券综合工具，整合18个已抓包验证的�
 | **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
-| **阿里系（2 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 | Python 标准库（+cryptography 解 v10 信封） |
+| **阿里系（3 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 ③Qoder CN 每日 100 Credits（30 天有效）：★凭证在桌面端 `auth.v1.dat`（**同一套 v10 解密链**）；campaigns 动态发现 + claim，服务端幂等 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。三步链路：`ops/delivery` 查 `claimable` → `ops/claim`（idempotentKey `claim_<id>_<ms>`）→ `ops/confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 |
 
 > **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
-> **同一家企业的多个产品已合并为一组**（美团系 / 小米系 / 讯飞Loomy / WorkBuddy）：上面表格中同组脚本按所列顺序依次执行即可，等价于总控的链内串行；各组共享一份配置、各写独立 state，互不影响。
+> **同一家企业的多个产品已合并为一组**（美团系 / 小米系 / 讯飞Loomy / WorkBuddy / 阿里系 / 利宝）：上面表格中同组脚本按所列顺序依次执行即可，等价于总控的链内串行；各组共享一份配置、各写独立 state，互不影响。
 
 ---
 
@@ -231,6 +231,21 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★两步不可省：`claim` → `CLAIMED`，`confirm` → `CONFIRMED`（积分才入账），confirm 返回 `totalAmount/remainingAmount/expireAt`（30 天有效）
 - 幂等：`claimable=false` + `status=CONFIRMED` = 今日已领；硬提交返 HTTP200 + `code:40001「尚未到达权益刷新时间，暂时无法领取」`
 
+### 16) Qoder CN（阿里系，2026-10-15 建成）
+
+**免抓包**：安装并登录「Qoder CN」桌面端即可，脚本实时解密 `%APPDATA%/com.qodercn.app.stable/auth.v1.dat`。
+
+- ★凭证机制：`auth.v1.dat` 是 Chromium **v10 加密信封**（`{"schemaVersion":1,"token":"dt-...","refreshToken":"drt-...","expiresAt":...,"user":{...}}`），解密链与浏览器 cookie / 千问办公 `auth-v2.dat` **完全一致**；`auth.machine-id` 是明文（机器码，抓包里的 `cosy-machineid` 即它），`auth-profile-overlays.v1.dat` 也是 v10 信封但内容无用
+- ★**优先实时读客户端文件**（桌面端自己会续期）→ **永不与客户端抢 refresh_token 轮换、不踢下线**；`qoder_config.json` 只作兜底
+- 接口：HOST=`https://openapi.qoder.com.cn`；`GET /sash/api/v1/me/campaigns`（活动清单）、`POST /sash/api/v1/me/campaigns/{campaignId}/claim`（body 空，`content-length:0`）
+- ★**必需请求头只有 2 个**（二分实测）：`authorization: Bearer <dt-token>` + `cosy-clienttype: 10`。其余全装饰：`cosy-version/machineos/machinehostname/machineid/machinetoken/machinecode/machinetype`、`bx-v`、`sec-*`、`origin`、`referer`、**cookie** 缺了照样 200
+- ★但**不能完全没有 cosy-\* 头**：缺时服务端返 `{"showCampaign":false,"claimable":false,"campaigns":[]}` —— 不报错但拿不到活动（按客户端类型过滤），脚本对此有明确诊断分支
+- ★**活动每日一期**：窗口 = 北京时间当日 **10:00 ~ 次日 09:59**，每期 `campaignId` 是新的 UUIDv7 → **绝不能硬编码**，必须每次 GET campaigns 动态取；`campaignKey`（如 `act-20261013-847`）是模板 key，不随期变
+- 挑选：`actionType=="CLAIM_BENEFIT"` 且 `benefit.kind=="CREDITS"`（每日 100 那期；另有 REDEMPTION_CODE 需达成成就、VIEW_DETAILS 无权益，自动忽略）
+- ★幂等铁证：`claimStatus=="CLAIMED"` 直接跳过；重复 claim 返**同一 grantId** 且 `replayed=true`，服务端不重复发放 —— 可安全每天跑
+- 时序：总控也是 10:00 跑，故排「阿里系」链**最后**（链内串行天然延迟，规避窗口刚开的边界空转）
+- 断线症状：`auth.v1.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
+
 ---
 
 ## 二、我来自动完成
@@ -256,6 +271,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；第 2 个子步骤）
 - 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
 - 千问办公：每日 100 积分核对（`qwenwork_credits.py auto`；凭证实时解密桌面端 `auth-v2.dat`，免抓包；免费版积分**服务端自动发放、当日有效**，脚本核对日包余额 + 尝试签到接口）
+- Qoder CN：每日 100 Credits 领取（`qoder_credits.py auto`；凭证实时解密桌面端 `auth.v1.dat`，免抓包；campaigns 动态发现 → claim，30 天有效；服务端幂等，重复提交 `replayed=true` 不重复发放；排在阿里系链末位，规避每日 10:00 窗口边界）
 - 华为码道：每日签到领 1000 积分（`hw_codearts.py auto`；`delivery` 判 `claimable` → `claim` → `confirm`；已领时 `claimable=false`，脚本跳过并打印积分桶余额）
 
 ---
@@ -280,6 +296,9 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
 | 京东互动中心 `code:3` 请先登录 | 浏览器京东登录态失效/被轮换 | 同签到：Thorium 重新登录 jd.com，下次运行自动读新 cookie |
 | 阿里云盘「今日已签」却记成首次 | `signInLogs` 的中文月份/字符串日解析失败会判不到今日 | 已修（`_cn2int` 支持「十月」/"12"）；核对用 `aliyun_signin.py status` |
+| 千问办公/Qoder CN 提示【失效】未找到凭证 | 桌面端未安装/未登录，或 `auth-v2.dat` / `auth.v1.dat` 缺失 | 安装并登录对应桌面端一次；两家的凭证文件都是 Chromium v10 信封，脚本实时解密、不写回客户端 |
+| Qoder CN 提示「服务端返回空活动列表」 | `cosy-clienttype` 头缺失时服务端按客户端类型过滤活动（不报错但 `campaigns:[]`） | 脚本已固定发送 `cosy-clienttype: 10`；若仍空列表，检查是否到了每日 10:00 窗口、或活动是否下线 |
+| Qoder CN「已领取」但积分没到账 | 服务端 `claimStatus=CLAIMED` 即已发放；重复 claim 返同一 grantId + `replayed=true` | 正常幂等；去 Qoder CN 活动页核对，或用 `probe` 强制提交看服务端原文 |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -372,6 +391,12 @@ python scripts/hw_codearts.py init "<整行cookie>"        # 落盘凭证并校�
 python scripts/hw_codearts.py auto                      # delivery → claim → confirm（定时任务用这个）
 python scripts/hw_codearts.py status                    # 只读：活动状态 + 积分桶
 python scripts/hw_codearts.py probe                     # 不可领时硬提交一次，拿到服务端原文定位刷新时间
+
+# Qoder CN（安装并登录桌面端 Qoder CN，脚本解密 auth.v1.dat，免抓包）
+python scripts/qoder_credits.py auto                    # campaigns 动态发现 → 领取每日 100 Credits（定时任务用这个）
+python scripts/qoder_credits.py status                  # 只读：活动清单 + 今日是否已领
+python scripts/qoder_credits.py probe                   # 强制领取一次（验证服务端幂等 replayed）
+python scripts/qoder_credits.py init                    # 把客户端凭证导出到 qoder_config.json 兜底
 
 # 凭证同步：魔搭/小浣熊/Loomy 轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 # 阿里云盘不走 cookie（凭证在 Local Storage），不在此列
