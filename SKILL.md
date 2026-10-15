@@ -7,15 +7,7 @@ description: 一站式签到/领券综合工具，整合19个已抓包验证的�
 
 # 签到啦 · 一键签到/领券合集
 
-整合十九个**已抓包验证**的自动化入口（19 个脚本，按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
-
-> **★生效目录（2026-10-15 从 WorkBuddy 迁到 Qoder）**：脚本与配置现在放在
-> `<本机路径>` 与 `<本机路径>`
-> **两处保持一致**。旧位置 `<本机路径>` 是**只读历史**，
-> 不要在那里改代码、也不要再改回 `skills`（每日总控任务的 `DIR` 必须指向新目录）。
-> 解释器/Node 仍复用 `~/.workbuddy/binaries/`（那份没动），可用 `WB_PY` / `MT_NODE` / `SIGNIN_SCRIPTS_DIR` /
-> `THORIUM_EXE` 覆盖，脚本内部不再钉死用户名与版本号。GR 的「第二份 config 镜像」路径改放本地
-> `gr_config.json` 的 `workdir_cfg` 键（该文件不入库），代码里不留机器路径。
+整合十九个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 11 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -312,7 +304,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | ★美团惠省红包墙「今天的活动没领」 | 两种可能：① **其实已领完**（跑 `mt_api_coupon.py probe` 看「可领 N / 已在卡包 M」，可领=0 即领完，曾在 00:58 手动跑过并标记过当日）；② 旧版**日级幂等**把当天后出现的新批次挡掉了（红包墙当天会刷新，实测墙总额 ¥222→¥412） | 已修复为 rightCode 级幂等（2026-10-12），只领新出现的券；仍异常就跑 `probe` 对比「可领数」与 `mt_claim_state.json` 里当日 `granted_rc` 数量 |
 | 美团惠省红包墙 probe 显示「可领 0 / 已在卡包 38」但记得没领过 | 之前某次运行（含手动测试）已领，`couponViewId` 有值即代表在卡包 | 正常；想核对去美团小程序「我的→红包/卡包」按日期看 |
 | 美团 `querySharePopWindow` 返回 `data:null` | 无分享弹窗、无待领分享奖励 | 正常空操作；哪天真返回非 null data 再补分享任务实现 |
-| ★WorkBuddy 报「未找到 buddy_station.py（skill 未安装？）」 | 2026-10-15 目录收敛把 `~/.workbuddy/skills` 整体改名 `skills_deprecated_20261015`，而 `wb_score.py`/`wb_growth.py` 只搜老路径找官方 skill `totorosir-workbuddy-score` | 已修复：两处都改为按 `~/.qoder-cn/skills` → `~/.agents/skills` → `~/.workbuddy/skills` 顺序搜索。若仍找不到，说明该 skill 真被卸载，重装后无需改脚本 |
+| ★WorkBuddy 报「未找到 buddy_station.py（skill 未安装？）」 | 官方 skill `totorosir-workbuddy-score` 没装，或装在了脚本搜索范围之外的目录 | 脚本按 `~/.qoder-cn/skills` → `~/.agents/skills` → `~/.workbuddy/skills` 顺序查找，装到任一处即可；三处都没有才是真没装，重装后无需改脚本 |
 | WorkBuddy 报「[x] 无法解析输出」+ `UnicodeDecodeError: 'gbk' codec can't decode` | 父进程按本地 GBK 解 `buddy_station.py` 的 UTF-8 中文输出，reader 线程崩掉 → 表现为**假失效**（路径修好后才暴露） | 已修复：`run_bs()` 显式 `encoding="utf-8", errors="replace"` 并给子进程 `PYTHONIOENCODING=utf-8` |
 | 编排器打印「headless 浏览器就绪」，cookie_sync 却报 `[中断] cookie 读取失败: WinError 10061` | 拉起的 headless 实例在「就绪」之后**中途退出**（`/json/version` 曾短暂可达）。旧版一次失败就 rc=2 | 已修复两层：`_wait_online()` 现在校验 9222 的 LISTEN 确属本次拉起的进程（psutil `net_connections`），且要求 Popen 仍存活；`cookie_sync` 读 cookie 失败会收掉死壳**重试一次** |
 | 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
