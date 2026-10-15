@@ -38,13 +38,23 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 
 ### 方式二：脱离 AI，纯脚本独立运行
 
-1. 环境要求：**Python 3.10+**（全部脚本仅用标准库）；美团签名需要本机 **Node.js**（可用环境变量 `MT_NODE` 指定路径）；WorkBuddy 积分需要安装 WorkBuddy 客户端。
+1. 环境要求：**Python 3.10+**（全部脚本仅用标准库）；美团签名需要本机 **Node.js**（可用环境变量 `MT_NODE` 指定路径）；南航 H5 登录态失效时的自动重登是可选能力，需另装 `playwright`（不装则按小节手工抓包）；WorkBuddy 积分需要安装 WorkBuddy 客户端。
 2. 克隆仓库并进入 `scripts/` 目录。
-3. 复制配置模板并填入你的抓包值（抓法见 `SKILL.md`）：
+3. 复制配置模板并填入你的抓包值（抓法见 `SKILL.md`；没有模板的平台=免配置或浏览器直取凭证）：
    ```bash
    cp mt_config.example.json mt_config.json   # 然后编辑填入抓包值
    ```
-   各平台模板：`mt_config.example.json`、`csair_config.example.json`、`ms_config.example.json`、`xhx_config.example.json`、`loomy_config.example.json`。
+   - `mt_config.example.json` → `mt_config.json` — 美团系 4 个脚本共用
+   - `csair_config.example.json` → `csair_config.json` — 南航（小程序）
+   - `ms_config.example.json` → `ms_config.json` — 魔搭 ModelScope
+   - `xhx_config.example.json` → `xhx_config.json` — 办公小浣熊（商汤）
+   - `loomy_config.example.json` → `loomy_config.json` — Loomy（讯飞）
+   - `mt_answer_config.example.json` → `mt_answer_config.json` — 美团答题领现金
+   - `xm_mijin_config.example.json` → `xm_mijin_config.json` — 小米商城米金
+   - `yp_rpsign_config.example.json` → `yp_rpsign_config.json` — 有品每日签到（红包）
+   - `hw_codearts_config.example.json` → `hw_codearts_config.json` — 华为码道 CodeArts Doer
+   - `qwenwork_config.example.json` → `qwenwork_config.json` — 千问办公（阿里）
+   - `qoder_config.example.json` → `qoder_config.json` — Qoder CN（阿里）
 4. 运行（幂等，可重复跑）：
    ```bash
    python scripts/mt_api_coupon.py claim                # 美团券包（惠省小程序首页红包墙）
