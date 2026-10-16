@@ -76,8 +76,9 @@ def _state_paths():
     return (os.path.join(ud, "User", "globalStorage", "state.vscdb"), ud)
 
 
-def load_client_session():
-    """返回解密后的完整 session dict（含 refresh_token/loginContext/AK-SK），失败返回 (None, 原因)。"""
+def _load_agent_session():
+    """Agent 版（Roaming/codearts-agent）：state.vscdb → secret:// 键 → v10。
+    返回 (sess|None, why)。sess 是扁平结构（含 refresh_token/loginContext/AK-SK）。"""
     db, ud = _state_paths()
     if not os.path.isfile(db):
         return None, "没找到 CodeArts Agent 的 state.vscdb（未安装/未登录：%s）" % db
@@ -121,6 +122,112 @@ def load_client_session():
         return json.loads(bc.decrypt_v10(bc.master_key(ud), blob).decode("utf-8")), ""
     except Exception as e:
         return None, "读取桌面端 session 失败：%s: %s" % (type(e).__name__, str(e)[:140])
+
+
+# ── IDE 版（2026-10-16 实测发现）：Roaming/codearts/secretStorage/*.enc ──────
+# CodeArts IDE（非 Agent 插件版）把同一套华为云 session 存在 VS Code 的
+# secretStorage 文件制存储里：每个 secret 一个 `<sha256(key)>.enc` 文件，内容 =
+# **整串 base64（带换行）**，解码后是 Chromium v10 信封（DPAPI 主密钥同链）。
+# 结构差异（必须归一化，否则续期链路全断）：
+#   {session:{accessKey, secretKey, securityToken, refreshToken, expiresAt(★毫秒整数),
+#             userId, domainId, userName, clientId:"codearts"(★不是 codearts-agent), ...},
+#    loginContext:{pkcePair:{codeVerifier,...},
+#                  dpopKeyPair:{privateKey/publicKey ★是 JSON 字符串非 dict}}}
+# ★client_id 从 refresh_token JWT 载荷里取（权威），不同 client 签发的 rt 只能
+#   用同一 client_id 刷，用错 STS 直接拒。
+def _ide_user_data():
+    return os.path.join(os.environ.get("APPDATA", ""), "codearts")
+
+
+def _rt_client_id(rt):
+    try:
+        p = rt.split(".")[1]
+        pl = json.loads(base64.urlsafe_b64decode(p + "=" * (-len(p) % 4)))
+        return pl.get("client_id") or ""
+    except Exception:
+        return ""
+
+
+def _normalize_ide(raw_obj):
+    """把 IDE 版 {session, loginContext} 归一成 Agent 版扁平结构。"""
+    s = raw_obj.get("session") or {}
+    if not (s.get("accessKey") and s.get("secretKey")):
+        return None
+    rt = s.get("refreshToken") or ""
+    lc = raw_obj.get("loginContext") or {}
+    dk = lc.get("dpopKeyPair") or {}
+    def _jwk(v):
+        if isinstance(v, str):
+            try:
+                return json.loads(v)
+            except Exception:
+                return {}
+        return v or {}
+    ea = s.get("expiresAt")
+    if isinstance(ea, (int, float)):
+        ea_iso = datetime.fromtimestamp(ea / 1000, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S") + "Z"
+    else:
+        ea_iso = ea or ""
+    out = {
+        "accessKey": s.get("accessKey"), "secretKey": s.get("secretKey"),
+        "securitytoken": s.get("securityToken") or "",
+        "refresh_token": rt,
+        "expires_at": ea_iso,
+        "domainId": s.get("domainId") or "",
+        "user_id": s.get("userId") or "",
+        "user_name": s.get("userName") or "",
+        "client_id": _rt_client_id(rt) or s.get("clientId") or CLIENT_ID,
+        "loginContext": {
+            "pkcePair": {"codeVerifier": (lc.get("pkcePair") or {}).get("codeVerifier") or ""},
+            "dpopKeyPair": {"privateKeyJwk": _jwk(dk.get("privateKey")),
+                            "publicKeyJwk": _jwk(dk.get("publicKey"))}},
+        "_source_form": "ide",
+    }
+    return out
+
+
+def _load_ide_session():
+    ud = _ide_user_data()
+    st = os.path.join(ud, "secretStorage")
+    if not os.path.isdir(st):
+        return None, "没找到 CodeArts IDE 的 secretStorage（未安装：%s）" % st
+    try:
+        import browser_cookies as bc
+        key = bc.master_key(ud)
+        for fn in sorted(os.listdir(st)):
+            if not fn.endswith(".enc"):
+                continue
+            try:
+                with open(os.path.join(st, fn), "rb") as f:
+                    b64 = f.read().strip()
+                dec = base64.b64decode(b64 + b"=" * (-len(b64) % 4))
+                if dec[:3] != b"v10":
+                    continue
+                obj = json.loads(bc.decrypt_v10(key, dec).decode("utf-8"))
+            except Exception:
+                continue
+            if not isinstance(obj, dict):
+                continue
+            sess = _normalize_ide(obj)
+            if sess:
+                return sess, ""
+        return None, "secretStorage 里没有华为云 session（IDE 未登录/刚退出）"
+    except Exception as e:
+        return None, "读取 IDE session 失败：%s: %s" % (type(e).__name__, str(e)[:140])
+
+
+def load_client_session():
+    """双源读取并归一化：Agent 版（state.vscdb）优先，其次 IDE 版（secretStorage）。
+    返回 (sess|None, 原因)。sess 含 client_id 字段（STS 刷新要按签发 client 走）。"""
+    sess, why_a = _load_agent_session()
+    if sess:
+        sess.setdefault("client_id", CLIENT_ID)
+        sess.setdefault("_source_form", "agent")
+        return sess, ""
+    ide, why_i = _load_ide_session()
+    if ide:
+        return ide, ""
+    return None, "Agent 版：%s ；IDE 版：%s" % (why_a, why_i)
 
 
 # ── base64url（无填充）──────────────────────────────────────────────────────
@@ -200,12 +307,16 @@ class RefreshTerminal(Exception):
     """refresh_token 终态失效（已被消费/过期/不匹配）→ 该 token 不能再试第二次，须重开客户端登录。"""
 
 
-def exchange_refresh_token(rt, code_verifier, priv_jwk, pub_jwk, fetch_timeout=TOKEN_TIMEOUT_MS):
+def exchange_refresh_token(rt, code_verifier, priv_jwk, pub_jwk, fetch_timeout=TOKEN_TIMEOUT_MS,
+                           client_id=None):
     """POST STS token endpoint，返回 {access_key_id, secret_access_key, security_token,
-    expiration, refresh_token}。失败：终态抛 RefreshTerminal，其他抛 RuntimeError。"""
+    expiration, refresh_token}。失败：终态抛 RefreshTerminal，其他抛 RuntimeError。
+    ★client_id 必须与 rt 签发时一致（Agent 版=codearts-agent，IDE 版=codearts）——
+      从 rt 的 JWT 载荷取，取不到才用传入值兜底，再兜底 CLIENT_ID。"""
+    cid = client_id or _rt_client_id(rt) or CLIENT_ID
     proof = build_dpop_proof(priv_jwk, pub_jwk, "POST", STS_TOKEN_ENDPOINT)
     body = urllib.parse.urlencode({
-        "client_id": CLIENT_ID,
+        "client_id": cid,
         "code_verifier": code_verifier,
         "grant_type": "refresh_token",
         "refresh_token": rt,

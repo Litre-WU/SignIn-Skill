@@ -270,13 +270,13 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ### 15) 华为码道 CodeArts Doer（2026-10-14 建成，2026-10-15 改为免抓包）
 
-**★首选：读 CodeArts Agent 桌面端登录态，不需要抓包、也不会再因 cookie 过期而失效。**
-只要本机装了 CodeArts Agent 并且处于已登录状态，`hw_codearts.py` 会自动：
-`%APPDATA%\codearts-agent\User\globalStorage\state.vscdb` 取
-`secret://{"extensionId":"huaweicloud.authentication","key":"HuaweiCloudSession"}`
-→ 外层是 VS Code 的 `{"type":"Buffer","data":[…]}`，内层是 Chromium **v10** 信封
-（AES-256-GCM，主密钥在 `<userData>\Local State` 的 `os_crypt.encrypted_key`，去 DPAPI 5B 头）
-→ 得到 IAM **临时 AK/SK + X-Security-Token + expires_at**，用它按 `SDK-HMAC-SHA256` 签名请求。
+**★首选：读 CodeArts 桌面端登录态，不需要抓包、也不会再因 cookie 过期而失效。**
+本机装了 CodeArts（Agent 插件版或 IDE 版）并处于已登录状态时，`hw_codearts.py` 会自动（★2026-10-16 双源）：
+- **Agent 版**：`%APPDATA%\codearts-agent\User\globalStorage\state.vscdb` 取
+  `secret://{"extensionId":"huaweicloud.authentication","key":"HuaweiCloudSession"}`
+  → 外层是 VS Code 的 `{"type":"Buffer","data":[…]}`，内层是 Chromium **v10** 信封
+- **IDE 版**（Roaming\codearts，字段命名不同）：`secretStorage/<sha256(key)>.enc` —— 内容是**整串 base64**，解码后才是 v10 信封；结构是 `{session:{accessKey,secretKey,securityToken,refreshToken,expiresAt(★毫秒整数),…}, loginContext:{pkcePair, dpopKeyPair:{privateKey/publicKey ★JSON 字符串}}}`，`hw_codearts_refresh._normalize_ide()` 归一成 Agent 版扁平结构。★**client_id 从 refresh_token 的 JWT 载荷取**（Agent=codearts-agent，IDE=codearts）——用错 STS 直接拒
+- 主密钥都在 `<userData>\Local State` 的 `os_crypt.encrypted_key`（去 DPAPI 5B 头），两条链同一套解密
 换机器/换用户名无需改代码：`HW_CODEARTS_UD` 可覆盖 userData 路径。
 
 - 桌面端用的网关**不是** devcloud：`https://snap-access.cn-north-4.myhuaweicloud.com/v1/ops/{delivery,claim,confirm,invite/generate,tasks/conversation,events/conversation}`，`channel=IDE`（实测 IDE 与 WEB 两个 channel 的 delivery 返回完全一致）
