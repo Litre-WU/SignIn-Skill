@@ -63,6 +63,33 @@ def hdr(rec, name):
     return ""
 
 
+def hdr_joined(rec, name, sep="; "):
+    """取**所有**同名请求头并用 sep 拼接（Chromium/ Electron 会把 cookie 拆成多条头）。"""
+    vals = [h.get("value", "") for h in ((rec.get("request") or {}).get("headers") or [])
+            if h.get("name", "").lower() == name.lower() and h.get("value")]
+    return sep.join(vals)
+
+
+def jwt_field(token, dotted):
+    """从 JWT 载荷里取点分字段（如 'data.id'）。解析失败返回空串。
+    TRAE 的 Cloud-IDE-JWT 载荷形如 {"data":{"id":"<uid>","source":"refresh_token",...}}。"""
+    import base64 as _b64
+    parts = token.split(".")
+    if len(parts) != 3:
+        return ""
+    try:
+        pad = "=" * (-len(parts[1]) % 4)
+        payload = json.loads(_b64.urlsafe_b64decode(parts[1] + pad).decode("utf-8", "replace"))
+    except Exception:
+        return ""
+    cur = payload
+    for key in dotted.split("."):
+        if not isinstance(cur, dict) or key not in cur:
+            return ""
+        cur = cur[key]
+    return cur if isinstance(cur, str) else ""
+
+
 def resp_json(rec):
     b = ((rec.get("response") or {}).get("body") or {})
     txt = b.get("text") if isinstance(b, dict) else None
@@ -90,7 +117,20 @@ def port_open(port, timeout=1.2):
         with socket.create_connection(("127.0.0.1", port), timeout=timeout):
             return True
     except Exception:
-        return False
+        pass
+    # ★沙箱回退：bash 沙箱的网络层会挡 localhost 直连（http_proxy 环境变量在场时，
+    # 连 socket 也可能被拦），此时转 PowerShell Test-NetConnection 探测——PowerShell
+    # 工具不在同一层沙箱里，能代表本机真实状态。agent 跑 doctor 必走这条。
+    if os.name == "nt" and (os.environ.get("http_proxy") or os.environ.get("HTTP_PROXY")):
+        try:
+            ps = ("$t=Test-NetConnection -ComputerName 127.0.0.1 -Port %d -InformationLevel Quiet "
+                  "-WarningAction SilentlyContinue; if ($t) {'OPEN'} else {'CLOSED'}" % port)
+            out = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
+                                 capture_output=True, text=True, timeout=15)
+            return "OPEN" in (out.stdout or "")
+        except Exception:
+            return False
+    return False
 
 
 def proxy_state():
@@ -226,6 +266,47 @@ REGISTRY = [
         "verify": lambda rec: "devclouddevuibjtcftk" in hdr(rec, "cookie"),
         "note": "回退链路才需要 cookie 抓包；devcloud 鉴权键是会话级 cookie 不落盘，必须开抓包/CDP 才取到",
     },
+    {
+        "id": "trae", "name": "TRAE（字节跳动）",
+        "action": "打开 TRAE 桌面端并登录，进任意会发请求的页面（如签到/积分页）",
+        "filter": {"type": "host", "hosts": ["api.trae.cn"]},
+        "match": lambda rec: "api.trae.cn" in (rec.get("url") or ""),
+        # Authorization = Cloud-IDE-JWT <JWT>（★非 Bearer）；uid 优先从 JWT 载荷
+        # data.id 解（实测签到/API 请求根本不带 x-uid 头），x-uid 仅作兜底
+        "extract": lambda rec: {
+            "token": hdr(rec, "authorization").replace("Cloud-IDE-JWT ", "").strip(),
+            "uid": jwt_field(hdr(rec, "authorization"), "data.id") or hdr(rec, "x-uid"),
+        },
+        "land": lambda f: [PY, os.path.join(HERE, "trae_credits.py"), "init",
+                           "--token", f["token"], "--uid", f["uid"]],
+        "verify": lambda rec: "Cloud-IDE-JWT" in hdr(rec, "authorization"),
+        "note": "token 是 JWT（source=refresh_token，实测约 14 天有效），过期后重新抓；"
+                "uid 从 JWT 载荷 data.id 解（设备身份派生必需）；抓到同域静态资源请求会缺字段，换一条 API 请求",
+    },
+    {
+        "id": "lobsterai", "name": "LobsterAI（有道）",
+        "action": "★浏览器打开并登录 https://lobsterai.youdao.com/portal ，刷新一下页面即可"
+                  "（Web 门户 cookie 认证全链路可用；桌面客户端默认 direct mode 抓不到）",
+        "filter": {"type": "host", "hosts": ["lobsterai-server.youdao.com"]},
+        "match": lambda rec: "lobsterai-server.youdao.com" in (rec.get("url") or ""),
+        # ★Web 门户模式：cookie 在记录里是**多条**同名头，必须全取拼接
+        "extract": lambda rec: {"cookie": hdr_joined(rec, "cookie")},
+        "land": lambda f: [PY, os.path.join(HERE, "lobsterai_credits.py"), "init",
+                           "--cookie", f["cookie"]],
+        "verify": lambda rec: "lobsterai_web_session" in hdr_joined(rec, "cookie"),
+        "note": "关键 cookie: lobsterai_web_session + NTES_YD_SESS + DICT_SESS + P_INFO（有道账号体系）；"
+                "Thorium 保持登录即可，可随时重新提取；桌面端 Bearer 模式见脚本文件头",
+    },
+    {
+        "id": "minimax", "name": "MiniMax Code",
+        "action": "打开 MiniMax Code 桌面端并登录，进签到/积分页（或任意会发请求的页面）",
+        "filter": {"type": "host", "hosts": ["agent.minimax.cn"]},
+        "match": lambda rec: "agent.minimax.cn" in (rec.get("url") or ""),
+        "extract": lambda rec: {"token": hdr(rec, "authorization").replace("Bearer ", "").strip()},
+        "land": lambda f: [PY, os.path.join(HERE, "minimax_credits.py"), "init", "--token", f["token"]],
+        "verify": lambda rec: bool(hdr(rec, "authorization")),
+        "note": "token 实测前缀 mmoat_（60 字符非 JWT）；timezone_id 脚本默认 Asia/Shanghai，不用抓",
+    },
 ]
 
 
@@ -253,15 +334,25 @@ def cmd_doctor(args):
         "" if exe else "  ·  没找到 Reqable.exe，请手动启动或用 --launch 搜索"))
     if not running and exe:
         if args.launch:
-            subprocess.Popen([exe], cwd=os.path.dirname(exe))
-            for _ in range(24):
+            # ★注意：agent 工具链会回收每次调用的子进程树，GUI 程序（Reqable）活不过
+            # 一个工具调用——所以脚本只能「试着拉」，拉完端口不开属预期。
+            # 正解：让用户在交互会话里手动双击打开 Reqable（图标/开始菜单），
+            # 那种进程归用户会话所有，不会被回收。
+            try:
+                subprocess.Popen([exe], cwd=os.path.dirname(exe))
+            except Exception:
+                pass
+            for _ in range(8):
                 if port_open(PORTS[0], 2.0):
                     running = True
                     break
                 import time as _t; _t.sleep(2.5)
-            print("[拉起] %s → %s" % (exe, "已就绪" if running else "仍不可达（可能要装驱动/首次弹窗确认）"))
+            print("[拉起] %s → %s" % (exe, "已就绪" if running else "仍不可达"))
+            if not running:
+                print("       ⚠ agent 拉起的 GUI 进程会被工具链回收（活不过一次调用）。")
+                print("       → 请你在桌面上【手动双击打开 Reqable】，然后再跑一次 doctor 验证。")
         else:
-            print("[建议] 跑 `python reqable_hunt.py doctor --launch` 由脚本拉起（Reqable 一开就会顺手接管系统代理）")
+            print("[建议] 手动打开 Reqable（或在桌双击图标）；开机自启用户可省这步")
 
     enable, server, override = proxy_state()
     print("[系统代理] ProxyEnable=%s ProxyServer=%s Override=%s" % (
@@ -353,9 +444,13 @@ def cmd_harvest(args):
         print("─" * 62)
         print("[%s] %s" % (pid, t["name"]))
         print("   提取: %s" % ", ".join("%s=%s" % (k, mask(v)) for k, v in f.items()))
-        missing = [k for k in ("openid", "token") if pid == "gr" and not f.get(k)]
+        missing = []
+        if pid == "gr":
+            missing = [k for k in ("openid", "token") if not f.get(k)]
+        elif pid == "trae":
+            missing = [k for k in ("token", "uid") if not f.get(k)]
         if missing:
-            print("   [!] 字段不全（缺 %s）→ 多半只抓到了其中一条请求，把同会话的 acquisition 记录一起放进来" % ",".join(missing))
+            print("   [!] 字段不全（缺 %s）→ 多半只抓到了其中一条请求，把同会话的 API 请求记录一起放进来" % ",".join(missing))
             continue
         cmd = t["land"](f)
         plan["cmds"].append(cmd)
@@ -365,7 +460,9 @@ def cmd_harvest(args):
         for c in plan["cmds"]:
             cfgs = [os.path.join(HERE, n) for n in
                     ({"csair": "csair_config.json", "modelscope": "ms_config.json", "libao": "libao_config.json",
-                      "gr": "gr_config.json", "huawei": "hw_codearts_config.json"}.get(pid, "") or "",) if n]
+                      "gr": "gr_config.json", "huawei": "hw_codearts_config.json",
+                      "trae": "trae_config.json", "lobsterai": "lobsterai_config.json",
+                      "minimax": "minimax_config.json"}.get(pid, "") or "",) if n]
             for cf in cfgs:
                 if os.path.exists(cf):
                     bak = cf + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")

@@ -2,12 +2,12 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合22个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合十九个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 11 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合二十二个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 14 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -22,6 +22,9 @@ description: 一站式签到/领券综合工具，整合19个已抓包验证的�
 | **阿里系（3 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 ③Qoder CN 每日 100 Credits（30 天有效）：★凭证在桌面端 `auth.v1.dat`（**同一套 v10 解密链**）；campaigns 动态发现 + claim，服务端幂等 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；没装客户端才回退 devcloud cookie。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
+| 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 |
+| 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分） | Python 标准库 |
+| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3` | Python 标准库 |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
 | **自动抓包入口（配合 reqable MCP）** | `scripts/reqable_hunt.py` | `doctor [--launch]` 体检 Reqable 进程/系统代理/根证书并给出下一步；`scan` 打印「平台→要抓哪个接口→提哪个字段→落到哪条命令」注册表；`harvest --file rec.json [--apply]` 吃 MCP `capture_live_get_by_id` 的记录原文，自动认平台、抽凭证、备份 config 再写回；`restore-proxy` 撤系统代理（关 Reqable 后必做，否则签到脚本成片假失效） | Python 标准库 + winreg（仅 Windows） |
@@ -300,6 +303,37 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★幂等铁证：`claimStatus=="CLAIMED"` 直接跳过；重复 claim 返**同一 grantId** 且 `replayed=true`，服务端不重复发放 —— 可安全每天跑
 - ★★**窗口切换边界（2026-10-15 修的静默漏领坑）**：总控 10:00 跑与窗口开场几乎重合，此刻列表里可能**同时存在刚过期的旧一期（已 CLAIMED）与新一期**，若按返回顺序取首个匹配就会误判「今日已领」而漏领整天。脚本已改为**优先挑「窗口覆盖当前时刻」的那期**，选中的若仍是刚过期一期则等 20s 重取一次。故排「阿里系」链**最后**（链内串行天然延迟，双重保险）
 - 断线症状：`auth.v1.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
+
+### 17) 字节 TRAE（2026-10-16 建成）
+
+协议来自 GitHub 开源项目 **Ebony-Vinyl/dsh-our-free-model**（`vendor/channel-pack/src/trae-credits.ts`，其重构自 trae-mate 参考实现）的分析移植。电脑打开 trae.ai 登录后，用 Reqable/mitmproxy 抓任意一条 `api.trae.cn` 请求发我：
+
+- `Authorization` 头 = `Cloud-IDE-JWT <access_token>`（★不是 Bearer）
+- `X-Uid` 头 = 账号 user_id
+
+- ★接口：`POST /trae/api/v2/ug/checkin_credits/status`（body `{}`，返 `checked_in/credits/enable`）、`POST /trae/api/v2/ug/checkin_credits/claim`（body `{}`）、`POST /trae/api/v2/pay/ide_user_ent_usage`（余额，body `{"require_usage":true,"req_source":2}`）
+- ★★**claim 幂等但不可区分**：已签到账号重复领取同样返回 `{code:0,message:"success"}`，与真正成功无法分辨 → 脚本**必须先查 status.checked_in**；且 claim 响应**不含积分数**，领取成功后**回查 status.credits**（实测单日 150）
+- ★设备身份按 uid **确定性派生**（对齐 trae-mate `device_map.rs`）：15 位数字 device_id / UUIDv4 market_user_id / 64hex session_id，算法为 SHA256(`salt:uid` + counterBE32) 种子流 → 多账号各自独立设备配额，脚本已完整移植
+- ★错误冷却（对齐 trae-mate `cooldown.rs`）：`code 1005`=套餐不含签到（12h）、`code 9074`=签到人数过多（300s）、HTTP 401=会话失效（需重新登录）、429=软限流（60s）
+- 断线症状：401 → 重新登录 TRAE 桌面端重新抓包
+
+### 18) 有道 LobsterAI（2026-10-16 建成）
+
+协议来源同上（`lobsterai-credits.ts`，重构自 lobsterai2api/sigin.py）。电脑打开 lobsterai.youdao.com 登录后，抓任意一条 `lobsterai-server.youdao.com` 请求发我：`Authorization: Bearer <access_token>`（纯 Bearer，无签名）。
+
+- ★三步签到：①`GET /api/client-activities/slot?placement=desktop_sidebar&clientVersion=<动态版本号>&containerApiVersion=2&platform=win32`（槽位参数为固定值，照抄客户端，改了可能拿不到活动）→ ②`GET /api/client-activities/{activityCode}/context?configRevision=<N>`（`state.claimedToday` + `actions[]` 双重预检）→ ③`POST /api/client-activities/{activityCode}/actions/check_in`（body `{configRevision, idempotencyKey:uuid4, payload:{}}`，**客户端幂等键**）
+- 版本号从 `api-overmind.youdao.com/openapi/get/luna/hardware/lobsterai/prod/update` 动态取（★非统一信封：外层 code/msg，载荷在 `data.value.version`），失败兜底 `2026.9.4`
+- ★余额用 `GET /api/user/profile-summary`（`creditItems[]` + `totalCreditsRemaining`）——**不是** `/api/user/quota`（后者只显示 freeCreditsTotal=300，不含活动积分；实测 profile-summary 5297.72 vs quota 300）
+- 断线症状：`data 为空（accessToken 可能已失效）` → 重新抓包
+
+### 19) MiniMax Code（2026-10-16 建成）
+
+协议来源同上（`minimax-credits.ts`，端点来自 asar UI chunk 直读+实测）。电脑打开 MiniMax Code 登录后，抓任意一条 `agent.minimax.cn` 请求发我：`Authorization: Bearer <access_token>`（实测前缀 `mmoat_`，60 字符，非 JWT）。
+
+- ★接口：`GET /minimax-cloud/api/v1/signin/status?timezone_id=Asia/Shanghai`（七日面板）、`POST /minimax-cloud/api/v1/signin/claim?timezone_id=...`（body `{}`）、`GET /minimax-cloud/api/v1/credit/details`（余额）
+- ★四个实测结论：①`timezone_id` 必填且为**客户端 IANA 时区名**（不带/非法都报 `invalid timezone_id`，且那是 HTTP 200）；②业务码在 **`base_resp.status_code`**（不是 `code`）；③`points` 是总数、`bonus_points` 是其中「额外」部分，**不得相加**（实测 800 档日 bonus 400，按钮就是「签到得 800」+「额外400」角标）；④今日已领判据 = **`is_today && status==3`**
+- ★幂等：`claim_result`（1=本次真领取 / 2=已领过），重复领取同样 HTTP 200
+- 断线症状：`base_resp.status_code` 非 0 → 按 status_msg 处置；401/403 → 重新抓包
 
 ---
 

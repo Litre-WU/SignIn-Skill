@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 11 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 14 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -17,6 +17,9 @@
 | 阿里系（3 项） | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | 阿里云盘签到（浏览器 Local Storage 实时取凭证）+ 千问办公每日 100 积分 + Qoder CN 每日 100 Credits（后两者桌面端 v10 信封解密取凭证，排末位规避 10:00 窗口边界），均无需抓包 |
 | 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
 | 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效） |
+| TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
+| LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
+| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3 |
 
 ## 安装
 
@@ -88,6 +91,15 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/qoder_credits.py auto                 # Qoder CN（阿里）
    python scripts/qoder_credits.py status
    python scripts/qoder_credits.py probe
+   python scripts/trae_credits.py auto                  # TRAE（字节跳动）
+   python scripts/trae_credits.py status
+   python scripts/trae_credits.py init
+   python scripts/lobsterai_credits.py auto             # LobsterAI（有道）
+   python scripts/lobsterai_credits.py status
+   python scripts/lobsterai_credits.py init
+   python scripts/minimax_credits.py auto               # MiniMax Code
+   python scripts/minimax_credits.py status
+   python scripts/minimax_credits.py init
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 
