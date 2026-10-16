@@ -78,6 +78,11 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CFG_PATH = os.path.join(BASE_DIR, "workbuddy_intl_config.json")
 
 DEFAULT_DOMAIN = "www.workbuddy.ai"
+# ★APISIX 网关按 UA 拦截（2026-10-16 实测取证）：同一个有效 session cookie，
+#   UA=`WorkBuddyAI/5.8.3` 或空 UA → 401（HTML，网关页）；UA=浏览器串 → 200 {"code":0,…}。
+#   所以这里必须发浏览器 User-Agent，客户端内核那个串反而会被挡。可用 config 的 user_agent 覆盖。
+BROWSER_UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
 # ★国际版 billingPrefix 为空 —— 路径不带 /v2（与国内版 wb_score.py 的关键差异）
 STATUS_PATH = "/billing/meter/checkin-activity-status"
 CHECKIN_PATH = "/billing/meter/daily-checkin"
@@ -112,7 +117,7 @@ def load_cfg():
 def _headers(cfg):
     """cookie 优先（网关 APISIX 认 session），Bearer 兜底。"""
     h = {"Accept": "application/json",
-         "User-Agent": "WorkBuddyAI/5.8.3",
+         "User-Agent": cfg.get("user_agent") or BROWSER_UA,
          "Origin": "https://" + cfg.get("domain", DEFAULT_DOMAIN),
          "Referer": "https://" + cfg.get("domain", DEFAULT_DOMAIN) + "/"}
     cookie = (cfg.get("cookie") or "").strip()
@@ -156,9 +161,12 @@ def _diagnose(http_code, payload, raw):
     if payload is None:
         low = (raw or "").lstrip().lower()
         if low.startswith("<html") or "authorization required" in low:
-            return ("网关拦截 HTTP %s（返回 HTML 不是业务 JSON）——国际版 /billing/meter/* "
-                    "走 APISIX session 鉴权，Bearer token 会被挡；"
-                    "请改用浏览器登录态 Cookie" % http_code)
+            # ★按取证顺序排查，别再一上来就叫人重抓 cookie：
+            #   本函数已在发浏览器 UA（见 BROWSER_UA），若仍 401，才轮到 session 有效性。
+            return ("网关拦截 HTTP %s（返回 HTML 不是业务 JSON）——/billing/meter/* 由 APISIX 把关，"
+                    "实测两类原因：①User-Agent 不是浏览器串（客户端 UA `WorkBuddyAI/*` 或空 UA 会直接 401，"
+                    "可用 config 的 user_agent 覆盖）；②www.workbuddy.ai 的 session 无效/过期"
+                    "（国内 workbuddy.cn 登录态在 .ai 域必被挡，需在国际版域重新登录一次）" % http_code)
         return "响应非 JSON（HTTP %s）：%s" % (http_code, (raw or "")[:120])
     return None
 

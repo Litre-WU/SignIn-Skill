@@ -346,10 +346,11 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 接口（域 `www.workbuddy.ai`）：`POST /billing/meter/checkin-activity-status`（状态，body `{}`）、`POST /billing/meter/daily-checkin`（领取，body `{}`）、`POST /billing/meter/get-user-resource-summary`（余额）
 - ★**判定只看响应体 `code`，不能看 HTTP 状态**：重复领取是 **HTTP 400 + code 10001**（"今天已签到"），属幂等成功
 - ★★**国内版登录态在国际版域无效**：实测拿 `www.workbuddy.cn` 的 token 打 `www.workbuddy.ai`，带 token / 带垃圾 token / 不带 token 都返回同一个 **APISIX 3.12.0 网关 401**（openresty HTML，不是业务 JSON），且响应带 `Set-Cookie: session=; Expires=Thu, 01 Jan 1970`（清 session）→ 是**网关层拦截**，换国内 token 重试没用；同域 `/v3/config` 却 200 `code:0`，说明站点可达、被挡的只是 `/billing/meter/*`
-- ★因此**网关要的是 session cookie，不是 Bearer**：脚本 `cookie` 优先、`access_token` 兜底。**需要国际版独立账号**
-- 未配置登录态时脚本输出 `[skip]` 并退出 0 —— **不是失效**，别误标【XX失效】
+- ★**401 的头号原因其实是 User-Agent，不是 cookie**（2026-10-16 对照取证）：同一个**有效** `session` cookie，UA 用客户端串 `WorkBuddyAI/5.8.3` 或留空 → `401` openresty HTML；UA 换成浏览器串（Chrome/122）→ `200 {"code":0,…}`。脚本已默认发浏览器 UA（可用 config 的 `user_agent` 覆盖）；上面那条「带/不带 token 都 401」的国内 token 对照实验若也是用客户端 UA 做的，结论**需按 UA 复测**
+- ★因此鉴权材料是 **www.workbuddy.ai 的 session cookie**（`session` / `session_2`，浏览器登录后 Chromium 会落盘，可直读），脚本 `cookie` 优先、`access_token` 兜底。**需要国际版独立账号**
+- 未配置登录态时脚本输出 `[skip]` 并退出 0 —— **不是失效**，别误标【XX失效】；`active=false` 输出「活动未开启」同样退 0（服务端按账号开关，非失效）
 - 抓包：浏览器登录 `https://www.workbuddy.ai` 后随便点一下触发 API，过滤 `www.workbuddy.ai`
-- 断线症状：出现"网关拦截 HTTP 401…请改用浏览器登录态 Cookie" → cookie 过期，重新抓
+- 断线症状：出现"网关拦截 HTTP 401…" → 先确认发的是浏览器 UA，**再**怀疑 session 是否失效（顺序反了会让人白抓一次 cookie）
 
 ### 21) Qoder 国际版（2026-10-16 建成，并入既有 Qoder 脚本）
 
@@ -372,7 +373,9 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★`code 1003` = 已领取，**属成功**（当失败会让定时任务反复误报）；`3007` = captcha 无效
 - ★★领取端点**始终强制索要阿里云验证码**（不带/带非法都 `400/3007`，且校验前置于 plan 校验），每个 plan 都要**重新 mint** param（复用得 3007）⇒ `status` 全自动，`claim` 需注入 `captcha_param`
 - ★`captcha_region` 由**服务端下发**（`client/configs`，cn / sgp），**不能写死**——写死则非 cn 区 100% 领不到；脚本留空时自动拉取
-- ⚠ 凭据：读官方客户端 `~/.zcode/v2/credentials.json` 的免抓包能力**已被上游 2026-10-05 删除**，现在只能抓 `zcode_jwt` + `device_mid`
+- ⚠ 凭据：读官方客户端 `~/.zcode/v2/credentials.json` 的免抓包能力**已被上游 2026-10-05 删除**
+- ★★**但网页登录态仍可免抓包取**（2026-10-16 从其前端 bundle 反查出存储键并实测通）：`zcode_jwt` = Thorium `zcode.z.ai` 源 localStorage 的 **`zcodejwttoken`** 键（leveldb 明文，可像阿里云盘那样按值搜 `eyJ…`）；`device_mid` = 同域 cookie **`visitor_id`**。★`X-Device-Mid` 是**必填**：只带 Bearer 打 `billing/balance` 返 `400 {"code":3001,"msg":"parameter error"}`，带上 `visitor_id` 即 `200 code:0`
+- 前置条件：在浏览器里登录过一次 zcode.z.ai（走 `oauth` 后 JWT 才写进 localStorage）
 
 ---
 
@@ -442,6 +445,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | `headless-shell` 模式下只有 2/3 同步成功，**办公小浣熊报 `raccoon_token` 缺失**（真实 profile 的 headless 也一样） | `raccoon_token` / `raccoon_refresh_token` 是**会话级 cookie**（Chromium 不落盘），磁盘 Cookie 库里根本没有，临时 profile 注入不到 | 非「用户没登录」。脚本已按结构性限制返回 rc=0 + `[说明]`。要真正同步小浣熊，必须**你自己用 `thorium.exe --remote-debugging-port=9222` 开着浏览器**再跑 `cookie_sync.py`；否则该家沿用 config 里的旧 token，到期才需处理 |
 | ★小浣熊明明属于上面那条结构性限制，`cookie_sync` 却报成 `浏览器缺少 raccoon_token（未登录？）` 并整步 **rc=3**（2026-10-16 编排器实测） | 豁免判定看 `mode.startswith("headless")`，而 `mode` 来自 `WB_BROWSER_HEADLESS_SHELL` 环境变量——**它只在拉起壳的那个进程里有**。编排器先拉起壳、`cookie_sync` 作为子进程只是「复用已在线的 9222」，env 丢了 → 被判成「用户自己的窗口」→ 会话级 cookie 缺失被当成未登录 | 已修：`headless_browser.is_headless_endpoint()` 直接问 CDP `/json/version`。★注意本机 Thorium 122 的 **`Browser` 字段写的是 `Chrome/122…`，只有 `User-Agent` 里带 `HeadlessChrome`**，只查 Browser 会永远判否。**判读口径：复用日志会写明「headless 无人值守壳」还是「用户自己开的窗口」，先按这句定性** |
 | MiniMax Code 报 `面板解析失败（响应形状不符硬约束）` | 真相通常是 **HTTP 401 `{"error":"invalid access token"}`**（token 过期），错误体没有 `base_resp`，被 `parse_panel` 的 asar 硬约束兜成"形状不符"，看不出该重抓凭证（2026-10-16 实测） | 已加 `_auth_err()`：401/403 与纯错误体会单独识别并打**【MiniMax 登录态失效】**+ 重抓指引（重登 MiniMax Code → 抓任意 `agent.minimax.cn` 请求的 Authorization 去掉 `Bearer ` 前缀写回 `minimax_config.json`）。真「形状不符」才是接口改版 |
+| ★WorkBuddy 国际版报「网关拦截 HTTP 401（返回 HTML 不是业务 JSON）」，且明明刚在浏览器登录过 `www.workbuddy.ai` | **APISIX 网关按 User-Agent 拦**：同一个有效 session cookie，UA=`WorkBuddyAI/5.8.3` 或空 UA → 401；UA 换浏览器串 → 200 `code:0`（2026-10-16 A/B 实测）。旧文案直接指向「cookie 过期」，会让人白抓一次 | 已修：脚本默认发浏览器 UA（config `user_agent` 可覆盖），失败文案改成「先确认 UA、再怀疑 session」。**判读顺序：见 401+HTML 先想 UA，别先叫用户重登** |
+| ZCode 打 `billing/balance` 返 `400 {"code":3001,"msg":"parameter error"}` | 缺 **`X-Device-Mid`** 请求头（必填，不是可选装饰）。凭证本身是好的 | `device_mid` 就填同域 cookie `visitor_id`；`zcode_jwt` 取 `zcode.z.ai` 源 localStorage 的 `zcodejwttoken` 键 → 两者齐了即 `200 code:0`（可完全不抓包，只要浏览器登录过一次） |
 | 华为码道 `[失败] delivery HTTP 200 但空响应体` | 华为云网关/WAF 在**登录态失效**时就回 200 + 零字节（不是 JSON、也不是 401），旧版只说「HTTP 200」等于没法定位 | `fail_reason()` 已能区分「明确拒绝 / 业务码 401 / 空响应体 / HTML 跳登录页」。装了 CodeArts Agent 的正常机器**不会再走 cookie 链路**（脚本首行 `[鉴权]` 会写明用的哪条）；★2026-10-16 起回退链路的失败行会**直接带上读不到桌面端凭证的具体原因**（`_CRED["why"]`，如「客户端凭证已过期 expires_at=… → 打开 CodeArts Agent 让它续期」），**先按它让用户打开并登录 CodeArts Agent**，只有确实没有该客户端才提 F12 重抓 `PromptCenterService` cookie |
 | 华为码道 `[失败] 读不到 CodeArts Agent 桌面端凭证（…）` | 三种原因：没装该客户端（没有 `%APPDATA%\codearts-agent\User\globalStorage\state.vscdb`）／客户端未登录（没有 `HuaweiCloudSession` 条目）／IAM 临时凭证 `expires_at` 已过期（约 2 小时，客户端在跑才自动续） | 打开 CodeArts Agent 登录一次即可（客户端运行中会把 `state.vscdb` 独占锁住，脚本走 `CreateFileW` 共享读复制，不需要你关窗口）；换机器用 `HW_CODEARTS_UD` 指到实际 userData；实在没有客户端就回退 `hw_codearts.py init '<cookie>'` |
 | 华为码道 claim/confirm `HTTP 400 HDN.1000 "channel : unknown exception"` | 服务端按 DTO 逐字段校验：`claim` 的 body **要** `channel`，`confirm` 的 body **不能带** `channel`；反过来给 POST 再挂 `?channel=` query 也会 400 | 已按客户端两处实现校准：GET 只放 query、POST 只放 body 且仅 claim 带 channel |

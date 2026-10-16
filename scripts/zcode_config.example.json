@@ -1,5 +1,5 @@
 {
-  "//": "ZCode（智谱）配置。origin=https://zcode.z.ai。★凭据已从『读 ~/.zcode/v2/credentials.json』改为 OAuth（上游 2026-10-05 删除免抓包），必须抓 zcode_jwt + device_mid。★查可领额度前必须先补 event/report 激活，否则 preview 空列表会误报『今日已领』。★领取端点强制阿里云验证码：无 captcha_param 时脚本提示人工领取（不算失败）；captcha_region 由服务端下发（cn/sgp），留空则自动从 client/configs 拉取。",
+  "//": "ZCode（智谱）配置。origin=https://zcode.z.ai。★可完全不抓包，只要浏览器登录过一次 zcode.z.ai：zcode_jwt = 该源 localStorage 的 zcodejwttoken 键；device_mid = 同域 cookie visitor_id。★X-Device-Mid 必填：只带 Bearer 打 billing/balance 会返 400 code:3001 parameter error。★查可领额度前必须先补 event/report 激活，否则 preview 空列表会误报『今日已领』。★领取端点强制阿里云验证码：无 captcha_param 时脚本提示人工领取（不算失败）；captcha_region 由服务端下发（cn/sgp），留空则自动从 client/configs 拉取。",
   "zcode_jwt": "<抓包 zcode.z.ai 请求的 Authorization，去掉 'Bearer '>",
   "device_mid": "<请求头 X-Device-Mid 的值>",
   "app_version": "3.14.3",
