@@ -96,6 +96,11 @@ def load_client_session():
                 row = con.execute(
                     "SELECT value FROM ItemTable WHERE key LIKE ?",
                     ('%HuaweiCloudSession%',)).fetchone()
+                # ★同连接先取判据（tmp 随后就删）：usages 历史键在 → 本机曾登录过，
+                #   session 键却没了 = 登录态被清掉（多半点了退出登录）
+                had_account = con.execute(
+                    "SELECT 1 FROM ItemTable WHERE key LIKE '%huawei-cloud-authentication%usages%' LIMIT 1"
+                ).fetchone() is not None
             finally:
                 con.close()
         finally:
@@ -104,7 +109,10 @@ def load_client_session():
             except OSError:
                 pass
         if not row:
-            return None, "state.vscdb 里没有 HuaweiCloudSession（客户端未登录）"
+            return None, ("state.vscdb 里 HuaweiCloudSession 已消失——客户端登录态被清掉"
+                          "（多半是点了退出登录），打开 CodeArts Agent 重新登录即可恢复续期链路"
+                          if had_account else
+                          "state.vscdb 里没有 HuaweiCloudSession（客户端从未登录）")
         v = row[0]
         if isinstance(v, str):
             v = v.encode("utf-8", "surrogateescape")
