@@ -34,7 +34,7 @@
 git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code 为例
 ```
 
-之后直接对助手说「签到」「领美团券」「南航签到」等，skill 会被触发并引导你抓包配置。多数平台只需**抓 1 条请求**发给助手；阿里云盘、京东京豆等更省事 —— **只要浏览器里是登录态，脚本会自己从本机读取凭证，不用抓包**。抓法详见 `SKILL.md` 各平台小节。
+之后直接对助手说「签到」「领美团券」「南航签到」等，skill 会被触发并引导你配置凭证。装了 Reqable（抓包客户端）时抓包由 agent 自动完成（`scripts/reqable_hunt.py`，你只在小程序/浏览器里**做一次动作**，不用复制任何请求文本，见 `SKILL.md` §〇）；没装就手工复制 1 条请求发给助手（§一）。阿里云盘、京东京豆等更省事 —— **只要浏览器里是登录态，脚本会自己从本机读取凭证，不用抓包**。各平台小节写明要抓哪一条。
 
 ### 方式二：脱离 AI，纯脚本独立运行
 
@@ -55,6 +55,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    - `hw_codearts_config.example.json` → `hw_codearts_config.json` — 华为码道 CodeArts Doer
    - `qwenwork_config.example.json` → `qwenwork_config.json` — 千问办公（阿里）
    - `qoder_config.example.json` → `qoder_config.json` — Qoder CN（阿里）
+   - `mt_union_config.example.json` → `mt_union_config.json` — 美团分销会场
 4. 运行（幂等，可重复跑）：
    ```bash
    python scripts/mt_api_coupon.py claim                # 美团券包（惠省小程序首页红包墙）
@@ -99,6 +100,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 
 - `browser_cookies.py` — 浏览器 Cookie 提取库：绕 Chromium 独占锁读取并解密 cookie；跨平台 TEMP 整库缓存复用
 - `_mishop_client.py` — 小米商城 mtop 客户端库：MiShop 设备头/服务Token/请求封装（xm_mijin.py 的依赖，凭证优先读 xm_mijin_config.json）
+- `reqable_hunt.py` — Reqable 自动抓包入口：抓包前置体检 + 平台注册表 + 「MCP 记录 JSON → 凭证 → 写回 config」：doctor / scan / harvest [--apply] / restore-proxy（关 Reqable 后必跑，否则系统代理残留会让脚本成片假失效）
 
 
 ## 安全声明

@@ -395,7 +395,9 @@ def marketing_sign(token, on_invalid=None):
                 if rc == "0000" or rc in ("0", "200"):
                     result["awards"].append("%s -> 领取成功(%s)" % (gift, val if val is not None else "done"))
                 elif rc == "S0023":
-                    result["awards"].append("%s -> 状态异常(S0023, 活动可能已结束, 跳过)" % gift)
+                    # 2026-10-16 抓包实证：respMsg 原文是「奖品状态不正确！」，且 awardList 里这些
+                    # mileageAward 已是 received —— 即「此前已领取」的正常幂等，不是活动结束，也没损失
+                    result["awards"].append("%s -> 已领取(S0023 奖品状态不正确=重复领，幂等跳过)" % gift)
                 else:
                     result["awards"].append("%s -> %s" % (gift, j2.get("respMsg", str(j2)[:80])))
             else:
@@ -423,16 +425,24 @@ def _h5_ctx(token):
 
 def find_lottery_chances(token):
     """查「已领取到账」的抽奖机会(lotteryAward, awardStatus=received)。
+    ★注意这只是**发放台账**，不等于「还可抽的次数」：次数记在抽奖池(按 randomId)自己身上。
+    2026-10-16 抓包实证：两条 lotteryAward 仍是 received，而 `draw` 已回
+    `W45005 您的抽奖次数已用完` —— 所以真判据是 draw 的返回码，不是这里的条数。
     抽奖机会由 getAward 领取激活, 实际消耗在小程序 draw 接口。
-    返回 [{'rewardId','lottery_id','gift_id','activity_id','name'}]。"""
+    返回 (chances, err)：err 非空 = 查询本身失败(鉴权/网关/网络)，**必须与「确实没机会」分开**——
+    2026-10-16 抓包实测 awardList 回 S00011「获取用户登录信息失败」被旧版当成空列表，
+    把台账里的 2 条 lotteryAward 直接报成「当前无待消耗的抽奖机会」（到底还能不能抽须看 draw 返回码）。"""
     cookies, hdrs = _h5_ctx(token)
     st, j = http("POST", HOST + "/marketing-tools/award/awardList",
                  params={"type": "APPTYPE", "chanel": "ss", "lang": "zh"},
                  json_body={"activityType": "sign", "pageNum": 1, "pageSize": 100},
                  extra_headers=hdrs, cookies=cookies)
+    if st != 200 or not isinstance(j, dict):
+        return [], "awardList HTTP %s" % st
+    code = str(j.get("respCode") or "")
+    if code != "0000":
+        return [], "awardList respCode=%s %s" % (code, str(j.get("respMsg") or "")[:40])
     out = []
-    if not isinstance(j, dict):
-        return out
     for d in (((j.get("data") or {}).get("list")) or []):
         if d.get("awardType") != "lotteryAward" or d.get("awardStatus") != "received":
             continue
@@ -447,12 +457,13 @@ def find_lottery_chances(token):
         out.append({"rewardId": d.get("id"), "lottery_id": lid,
                     "gift_id": d.get("awardId"), "activity_id": str(d.get("activityId")),
                     "name": d.get("awardName", "抽奖机会")})
-    return out
+    return out, None
 
 
 def do_draw(cfg, member, chance):
     """消耗一次抽奖机会 -> 小程序 mileagegift/draw。需有效 sessionId。
-    返回 (ok:bool, code:str, text:str)。ok=True 表示已出结果(含 W11000=已消耗)。"""
+    返回 (ok:bool, code:str, text:str)。ok=True 表示**服务端已给终局**（中奖或次数已耗尽），
+    只有终局才该记账；False 留给下一轮重试（WAF/sessionId 失效等都属未消耗）。"""
     hdr = build_headers(cfg)
     body = {"randomId": chance["lottery_id"],
             "memberNo": member.get("cardNo", ""),
@@ -466,15 +477,25 @@ def do_draw(cfg, member, chance):
                  json_body=body, extra_headers=hdr)
     if isinstance(j, dict):
         code = str(j.get("code") or j.get("respCode") or "")
-        if code in ("W0000", "0000", "0", "200"):
-            data = j.get("data")
-            prize = ""
-            if isinstance(data, dict):
-                prize = data.get("prizeName") or data.get("awardName") or json.dumps(
-                    data, ensure_ascii=False)[:80]
-            elif data:
-                prize = str(data)[:80]
-            return True, code, "中奖: %s" % (prize or "已抽(无奖品名)")
+        # ★2026-10-16 抓包实证：中奖码是 **W200**，且响应是**平铺字段**(giftName/mileage/winnerId)，
+        # 没有 data 包装。旧版成功码表里没有 W200 → 真抽中也会被判"失败"，再叠加旧版无条件记账，
+        # 就等于把一次成功抽写成异常、并把机会永久标死。
+        if code in ("W200", "W0000", "0000", "0", "200"):
+            prize = j.get("giftName") or j.get("mileage") or ""
+            if not prize:
+                data = j.get("data")
+                if isinstance(data, dict):
+                    prize = data.get("prizeName") or data.get("awardName") or json.dumps(
+                        data, ensure_ascii=False)[:80]
+                elif data:
+                    prize = str(data)[:80]
+            extra = ""
+            if j.get("mileage") and j.get("giftName") and str(j.get("mileage")) not in str(prize):
+                extra = "（里程 %s）" % j.get("mileage")
+            return True, code, "中奖: %s%s" % (prize or "已抽(无奖品名)", extra)
+        if code == "W45005":
+            # 抽奖池(按 randomId 计数)的次数已用完——这是终局，不是可重试的失败
+            return True, code, "抽奖次数已用完(服务端终局，不再重试)"
         if code == "W11000":
             return True, code, "校验失败(机会已消耗/无效)"
         if code == "W00000":
@@ -499,7 +520,20 @@ def draw_all(token=None, quiet=False):
         if not quiet:
             print("[跳过] 抽奖需 H5 token(marketing-tools 查机会), 当前无 token")
         return 0
-    chances = find_lottery_chances(token)
+    chances, qerr = find_lottery_chances(token)
+    if qerr:
+        # 本函数常在 signin_all 之后跑，而签到链路里的 Playwright 重登**已经换过 token**；
+        # 入口缓存的旧值会一路带到这儿，所以先重读文件里的新 token 再判失败（2026-10-16 实测踩到）。
+        fresh = load_h5_token() or cfg.get("signToken", "")
+        if fresh and fresh != token:
+            chances, qerr2 = find_lottery_chances(fresh)
+            if not qerr2:
+                token, qerr = fresh, None
+            else:
+                qerr = qerr2
+    if qerr:
+        print("[抽奖] 机会查询失败: %s —— 这是**鉴权/网关问题，不是「没有机会」**，别据此结案" % qerr)
+        return 7
     todo = [c for c in chances if not state.get("draw|%s" % c["rewardId"])]
     if not chances:
         if not quiet:
@@ -519,10 +553,13 @@ def draw_all(token=None, quiet=False):
     rc = 0
     for c in todo:
         ok, code, txt = do_draw(cfg, member, c)
-        state["draw|%s" % c["rewardId"]] = "%s|%s" % (code, txt)
-        save_json(STATE, state)
-        print("   [%s] %s (%s)" % ("OK" if ok else "失败", txt, c["lottery_id"]))
-        if not ok:
+        print("   [%s] %s (%s)" % ("OK" if ok else "未消耗", txt, c["lottery_id"]))
+        # 只有服务端给出终局结果(中奖 / W11000 已消耗)才记账。旧版无论成败都写 state，
+        # 一次 WAF 拦截就把机会永久标成"已处理"（state 里就留着一条 WAF 记录）。
+        if ok:
+            state["draw|%s" % c["rewardId"]] = "%s|%s" % (code, txt)
+            save_json(STATE, state)
+        else:
             rc = 6
     return rc
 

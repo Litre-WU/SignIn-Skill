@@ -2,7 +2,7 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。配置只需抓 1 条请求发给我即可，方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合19个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -24,13 +24,55 @@ description: 一站式签到/领券综合工具，整合19个已抓包验证的�
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；没装客户端才回退 devcloud cookie。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
-> **工作方式**：你抓包、发我请求，我来分析、生成配置、自动执行。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
+| **自动抓包入口（配合 reqable MCP）** | `scripts/reqable_hunt.py` | `doctor [--launch]` 体检 Reqable 进程/系统代理/根证书并给出下一步；`scan` 打印「平台→要抓哪个接口→提哪个字段→落到哪条命令」注册表；`harvest --file rec.json [--apply]` 吃 MCP `capture_live_get_by_id` 的记录原文，自动认平台、抽凭证、备份 config 再写回；`restore-proxy` 撤系统代理（关 Reqable 后必做，否则签到脚本成片假失效） | Python 标准库 + winreg（仅 Windows） |
+
+> **工作方式（2026-10-16 更新）**：抓包不再要求用户「复制整条请求粘过来」——agent 直接用 reqable MCP 过滤并取记录，再用 `reqable_hunt.py harvest` 落地。**用户只需要在小程序/浏览器里做一次动作**。MCP 不可用时才退回第一节的手工抓包。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
 > **同一家企业的多个产品已合并为一组**（美团系 / 小米系 / 讯飞Loomy / WorkBuddy / 阿里系 / 利宝）：上面表格中同组脚本按所列顺序依次执行即可，等价于总控的链内串行；各组共享一份配置、各写独立 state，互不影响。
 
 ---
 
-## 一、你要做的：抓 1 条请求发我
+## 〇、抓包优先走 Reqable MCP（用户不用复制任何文本）
+
+> 2026-10-16 起本 skill 的抓包默认由 **agent 通过 reqable MCP 自动完成**：用户只要在小程序/浏览器里**做一次动作**，agent 负责过滤记录、取响应原文、把凭证落到对应 config。旧的「抓 1 条请求粘给我」退为手工兜底（见第一节）。
+
+**分工边界（重要）**：Reqable 本地 9000/9016 只有 `Hello Reqable!`，**没有可供 Python 直读的 REST 路由**（`/api` `/capture` `/mcp` 全 404）。所以「读抓包记录」这一步只能走 MCP；Python 侧的 [`scripts/reqable_hunt.py`](scripts/reqable_hunt.py) 负责前置体检与「记录 JSON → 凭证 → 写回 config」。
+
+### agent 标准流程（5 步）
+
+1. 体检：Reqable 是否在跑、系统代理、根证书；没跑就拉起
+   ```bash
+   python scripts/reqable_hunt.py doctor --launch
+   ```
+2. `mcp__reqable__capture_live_set_enabled{enabled:true}` 开抓（Reqable 一启动就会自行接管系统代理）
+3. **让用户做一次动作**（照 `scan` 的「你要做的」列，例如：打开南航小程序首页 / 在 GR 小程序里手动分享一篇）
+4. `mcp__reqable__capture_live_filter{filters:[…]}` → 用 `scan <平台>` 打印的 pattern 拿到记录 id → `mcp__reqable__capture_live_get_by_id{id:N}` 取整条记录
+5. 把记录原文存成 TEMP 下的 `rec.json`（**别放会被发布的目录**），再
+   ```bash
+   python scripts/reqable_hunt.py harvest --file /tmp/rec.json          # 先演练，看提取到什么、将执行什么
+   python scripts/reqable_hunt.py harvest --file /tmp/rec.json --apply  # 确认后落地（写前自动备份 config.bak-<ts>）
+   ```
+   `harvest` 会按 host/path 自动认平台，不用指定；认不出来就打印「注册表里没有匹配项」，说明抓到了同域的别的请求，换 pattern 再抓。
+
+### 注册表（`python scripts/reqable_hunt.py scan` 的摘要）
+
+| 平台 | 用户要做的一次动作 | MCP 过滤 pattern | 提取 | 落地 |
+|---|---|---|---|---|
+| `csair` | 打开 PC 微信南航小程序首页 | `mini/api/login/login` | 响应体 `{sessionId,openId,unionId}` | `csair_signin.py refresh` |
+| `modelscope` | 浏览器打开 modelscope.cn（已登录） | host `www.modelscope.cn` | 请求头 `cookie`（含 m_session_id） | `ms_magicube.py init` |
+| `libao` | 小程序进任意页 | host `cs.libao.cn` | 请求头 `authorization` | `libao_integral.py init --auth` |
+| `gr` | **在小程序里手动分享一次文章**（定性接口改版 vs 限流的唯一对照样本） | `shareArticle` / `user/acquisition` | body 的 `openId`+`token` | `gr_signin.py init --token --openid` |
+| `huawei` | 优先**打开 CodeArts Agent 并登录**（免抓包）；否则开 devcloud 页面 | `PromptCenterService` | 请求头 `cookie`（含 `devclouddevuibjtcftk`） | `hw_codearts.py init` |
+
+### 三条必须知道的坑
+
+1. **系统代理副作用**：`ProxyEnable=1 / ProxyServer=127.0.0.1:9000` 而 Reqable 没在跑时，本机所有走系统代理的 HTTPS 都会 connection refused → **签到脚本会成片假失效**（我们的 urllib 脚本会读系统代理，实测已被抓到）。抓包结束跑 `python scripts/reqable_hunt.py restore-proxy`，或让 agent 调 `proxy_set{overrideSystem:false}`。
+2. **抓包记录里全是真凭证**（cookie / token / 手机号 / 身份证号密文）。`rec.json` 只放 TEMP；`harvest` 打印一律掩码；`config.bak-*` 与 `run_all_bench.json` 属本机运行物，**不要进发布目录或外传**。
+3. **有些动作 Python 替不了**：阿里云 WAF 按路径的 JS 挑战（南航 `mileagegift/draw` 抽奖消耗）、真机分享上报（GR）等，必须用户在客户端里点；抓包在这里的价值是**取证与定性**，不是绕过。
+
+---
+
+## 一、手工兜底：抓 1 条请求发我
 
 > 准备：电脑/手机微信挂 **Reqable / mitmproxy / Charles** 代理，正常打开对应小程序操作一次，把下面这条请求「整条复制」（抓包工具里选该请求 → 复制 Request）发给我即可。
 
@@ -49,7 +91,7 @@ https://media.meituan.com/fulishemini/couponActivity/listActivityCoupon...
 
 > **福利社 H5 活动页（"一键领百元券包"）**：福利社底部 tab 本身是一个 gundam 动态 H5 页（不是小程序原生页），脚本 `mt_gundam_coupon.py` 已覆盖。**复用同一条抓包的 wm_logintoken 即可，无需额外抓包**。它自动完成：底部 tab 配置 → 活动 gundam_id → 页面配置 → 全部领券组件（**跨券墙** / 限时抢券 / 天降掉券）。活动每周轮换、activityId 变化都能自动跟上。
 
-> **分销会场（"美团分销"小程序的会场券包）**：脚本 `mt_union_coupon.py`。链路 `listActivityCoupon/distributionVenue`（拉当日券列表 + recallToken）→ `grantActivityCoupon/distributionVenue`（H5 签名领取）。**复用同一条福利社抓包的 wm_logintoken 即可，无需额外抓包**（分销接口认账号级 token）。若想顺带领分销中心内嵌的跨券墙，需在 `scripts/mt_union_config.json` 配 `gdId/pageId/activityViewId/instanceId`（从分销中心页抓包取），不配则自动跳过。
+> **分销会场（"美团分销"小程序的会场券包）**：脚本 `mt_union_coupon.py`。链路 `listActivityCoupon/distributionVenue`（拉当日券列表 + recallToken）→ `grantActivityCoupon/distributionVenue`（H5 签名领取）。**复用同一条福利社抓包的 wm_logintoken 即可，无需额外抓包**（分销接口认账号级 token）。若想顺带领分销中心内嵌的跨券墙，复制 `scripts/mt_union_config.example.json` 为 `scripts/mt_union_config.json` 并填 `gdId/pageId/activityViewId/instanceId` 四个字段（从分销中心页抓包取，或走 §〇 让 agent 抓），不配则自动跳过。
 >
 > 关键点：① grant 必须用 **H5 签名**（`yodaReady=h5&csecplatform=4`），小程序签名会被拒 `code:30001`；② `recallToken` 含时间戳、时效极短，每次必须现拉列表，不能复用存盘响应；③ 幂等按 rightCode 记录（grant 返回 code:200 即视为该批已处理，含互斥未发放的券），新批次 rightCode 变化时自动跟进。
 
@@ -263,11 +305,11 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ## 二、我来自动完成
 
-收到你的整条请求后，我会：
+拿到凭证后（来源不管是 §〇 的 Reqable 自动抓包，还是 §一 的手工粘贴），我会：
 1. 解析其中的凭证字段（token / openId / sessionid 等）；
-2. 在 `scripts/` 下生成对应 json 配置（`gr_config.json` / `mt_config.json` / `csair_config.json`）；
+2. 在 `scripts/` 下生成对应 json 配置（`gr_config.json` / `mt_config.json` / `csair_config.json`），写前自动备份旧值；
 3. 立即跑一次验证（查状态 / 试签到 / 试领券），把结果贴给你确认；
-4. 确认通过后按你的要求挂上 WorkBuddy 定时任务（如每天清晨自动执行）。
+4. 确认通过后按你的要求挂上定时任务（如每天清晨自动执行全平台）。
 
 脚本自带幂等：当天已完成会自动跳过，删除对应 `*_state.json` 可重跑。
 
@@ -299,13 +341,21 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 美团限时抢总提示"活动太火爆" | 该场次库存=0（秒杀券库存个位数，被别人抢了）或当日已领（subCode 9017） | 属正常，脚本每日新场次自动重试；想抢到需在场次开始（10:00/11:00/17:00）第一时间跑 |
 | 美团"百元券包"没自动领 | 天降掉券每日只有 1 次机会，当天已领过则返回"次数已消耗光"；百元券包主力其实是**跨券墙**（页面可同时挂多个，"周末加码"那档面值最大） | 查 `mt_gundam_state.json` 或跑 `mt_gundam_coupon.py status` 看已领记录 |
 | 美团跨券墙 fetch 返回 `subcode:12 活动太火爆` | 风控：未带 info 接口下发的 `ta.uuid`/`iuuid` cookie | 已修复——脚本用 cookie jar 先 info 收 cookie 再 fetch；若仍失败说明该活动风控更严或该账号被限 |
-| 南航营销签到 `S0023 奖品状态不正确` | 历史过期活动的残留记录 | 忽略（脚本已标跳过） |
+| 南航营销签到 `S0023 奖品状态不正确` | 2026-10-16 Reqable 抓包实证：`award/getAward` 对**已经是 `received` 的 `mileageAward`** 回这句，即「重复领取」，不是活动结束、也没有损失 | 已修正措辞（旧版写「活动可能已结束」会误导汇总）；核对用 awardList 里该项的 `awardStatus` |
+| ★南航「当前无待消耗的抽奖机会」但小程序里明明能看到机会 | **两个叠加的假阴性**：① `awardList` 回 `S00011 获取用户登录信息失败` 时旧版 `find_lottery_chances` 直接返回空列表，把「鉴权失败」当成「没机会」；② `draw_all` 在入口就缓存 H5 token，而它常在 `signin_all` 之后跑——链路里的 Playwright 重登**已经换掉了 token**，缓存的旧值一路用到 S00011 | 已修（2026-10-16）：`find_lottery_chances` 改返回 `(chances, err)`，非 `0000` 一律报 err 并入口重读 `csair_h5_auth.json` 的新 token 再判失败；`draw` 报 rc=7 明确写「这是鉴权/网关问题，不是没有机会」。判读口径：**看不到机会先分清是查询失败还是真没有** |
+| ★南航抽奖机会「莫名其妙少了一个」 | 旧版 `do_draw` **无论成败都写 state**（`state["draw\|%s"] = code\|txt`），而 `todo` 过滤掉任何有记录的 rewardId → 一次阿里云 WAF 拦截（`WAF\|被阿里云滑块拦截`）就把一个从未真正消耗的机会永久标成「已处理」 | 已修：只有服务端给出**终局结果**（中奖 / `W11000` 已消耗）才记账，`WAF/W00000/W403` 等未消耗情形下轮自动重试。历史脏数据已清（`csair_state.json.bak-20261016` 留档） |
+| 南航 `mileagegift/draw` 回阿里云 WAF 挑战页（`meta name="aliyun_waf_aa"`，"请滑动滑块完成验证"） | ★2026-10-16 抓包**订正前一版结论**：不是「Python 过不去、真客户端能过」——**真小程序客户端同样被拦**（同一批 6 次 draw 里前几次都拿到挑战页），必须用户在小程序里**人工滑一次**。过完之后客户端把挑战页 `renderData` 里的 `token`/`traceid` 当 `u_atoken`/`u_asig` 附到重试 URL 上、再带 `u_aref=wxCaptcha` 与新的 `acw_tc` | 属平台反滥用，**不做自动化绕过**（单补 `acw_tc` 实测无效）。脚本遇 WAF 判「未消耗、不记账」，下轮自动重试 |
+| 南航抽奖**明明抽中了却被脚本判成失败** | 中奖码是 **`W200`**，响应为**平铺字段**（`giftName`/`mileage`/`winnerId`/`giftId`），**没有 `data` 包装**；旧版成功码表只有 `W0000/0000/0/200` 且只读 `data` | 已修：`W200` 入成功码表并按平铺字段取 `giftName`；补 **`W45005 抽奖次数已用完`** 为**终局码**（记账不再空跑），`WAF/W00000/W403` 才留待重试 |
+| 南航 `awardList` 有 N 条 `lotteryAward/received`，脚本就天天报「有 N 个机会」 | 那只是**发放台账**；抽奖次数记在抽奖池自己身上（按 `randomId`，本例 `0fLJsD`）。实证：两条至今 `received`，而 `draw` 已回 `W45005 次数已用完` | 真判据是 **draw 的返回码**，不是台账条数。另：奖池实测**几乎只有 1 里程、偶尔 2 里程**（`getWinnerList` 的 `luckWinnerList` 为空），期望 ≈1~2 里程/次——值不值得为它人工过滑块，自行权衡 |
+| 小程序类 `sessionId` 想免手工获取 | PC 微信小程序的流量在系统代理开着时会全进 Reqable | 用 Reqable MCP：`capture_live_filter` 关键词 `mini/api/login/login` → `capture_live_get_by_id` 取**响应体** → 直接喂 `csair_signin.py refresh '<JSON>'`（2026-10-16 实测一次通过，签到链路随之恢复） |
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
 | ★美团惠省红包墙「今天的活动没领」 | 两种可能：① **其实已领完**（跑 `mt_api_coupon.py probe` 看「可领 N / 已在卡包 M」，可领=0 即领完，曾在 00:58 手动跑过并标记过当日）；② 旧版**日级幂等**把当天后出现的新批次挡掉了（红包墙当天会刷新，实测墙总额 ¥222→¥412） | 已修复为 rightCode 级幂等（2026-10-12），只领新出现的券；仍异常就跑 `probe` 对比「可领数」与 `mt_claim_state.json` 里当日 `granted_rc` 数量 |
 | 美团惠省红包墙 probe 显示「可领 0 / 已在卡包 38」但记得没领过 | 之前某次运行（含手动测试）已领，`couponViewId` 有值即代表在卡包 | 正常；想核对去美团小程序「我的→红包/卡包」按日期看 |
 | 美团 `querySharePopWindow` 返回 `data:null` | 无分享弹窗、无待领分享奖励 | 正常空操作；哪天真返回非 null data 再补分享任务实现 |
 | ★WorkBuddy 报「未找到 buddy_station.py（skill 未安装？）」 | 官方 skill `totorosir-workbuddy-score` 没装，或装在了脚本搜索范围之外的目录 | 脚本按 `~/.qoder-cn/skills` → `~/.agents/skills` → `~/.workbuddy/skills` 顺序查找，装到任一处即可；三处都没有才是真没装，重装后无需改脚本 |
 | WorkBuddy 报「[x] 无法解析输出」+ `UnicodeDecodeError: 'gbk' codec can't decode` | 父进程按本地 GBK 解 `buddy_station.py` 的 UTF-8 中文输出，reader 线程崩掉 → 表现为**假失效**（路径修好后才暴露） | 已修复：`run_bs()` 显式 `encoding="utf-8", errors="replace"` 并给子进程 `PYTHONIOENCODING=utf-8` |
+| ★编排器里某平台 **rc=1、`out` 在某一行戛然而止、`err` 只有半截 `Traceback`**，而该平台单独重跑一切正常（2026-10-16 魔搭实测，同轮 WorkBuddy 也跟着 rc=1） | 反向的 GBK 问题：子进程 stdout 是**管道**时 Python 用本地 cp936 编码，脚本 `print("✅/ℹ️")` 直接抛 `UnicodeEncodeError` → 崩在打 emoji 那一行，前面已入账的动作看不见了。父进程再按 UTF-8 解码，bench 里中文全是乱码 | 已两层修复：①`run_all.py` 新增 `CHILD_ENV = dict(os.environ, PYTHONIOENCODING="utf-8")`，thread/process 的 `subprocess.run` 与 async 的 `create_subprocess_exec` 都带上它（一处覆盖全部任务，乱码同消）；②缺守卫的脚本补 `sys.stdout.reconfigure(encoding="utf-8", errors="replace")`——`ms_magicube.py`/`libao_integral.py` 原无，`mt_api_coupon/c189_signin/hw_codearts` 早有。**判读口径：见 rc=1+截断+Traceback 先怀疑这条，别急着报【平台失效】** |
+| ★华为码道报 `[鉴权] devcloud cookie/cftk（抓包）` + `delivery HTTP 200 但空响应体`，而用户说「浏览器已重新登录」 | 两条链路都补不上：①snap 链路要的是 **CodeArts Agent 桌面端**的 IAM 临时 AK/SK（`expires_at` 约 2h，客户端不跑就不过期续期，2026-10-16 实测卡在 10-15 13:03 签发、15:03 到期）；②浏览器重登也没用——`devclouddevuibjtcftk` 等 devcloud 鉴权键是**会话级 cookie 不落盘**，磁盘直读只捞到 21 个营销/统计 cookie，`init` 里那份 cookie 仍是手工 F12 抓的旧值 | **正确解法是打开 CodeArts Agent 并登录一次**（自动续上免抓包链路），不是让用户重登浏览器、也不是 F12 抓 cookie。只有确实没有该客户端时，才走「带 9222 开浏览器 + F12 抓 `PromptCenterService` 整行 cookie 跑 `init`」 |
 | 编排器打印「headless 浏览器就绪」，cookie_sync 却报 `[中断] cookie 读取失败: WinError 10061` | 拉起的 headless 实例在「就绪」之后**中途退出**（`/json/version` 曾短暂可达）。旧版一次失败就 rc=2 | 已修复两层：`_wait_online()` 现在校验 9222 的 LISTEN 确属本次拉起的进程（psutil `net_connections`），且要求 Popen 仍存活；`cookie_sync` 读 cookie 失败会收掉死壳**重试一次** |
 | 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
 | 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |

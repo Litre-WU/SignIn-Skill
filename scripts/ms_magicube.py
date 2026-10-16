@@ -324,4 +324,6 @@ def main():
 
 
 if __name__ == "__main__":
+    # 管道/GBK 控制台下 print emoji 会抛 UnicodeEncodeError（假失效），统一走 UTF-8
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     main()
