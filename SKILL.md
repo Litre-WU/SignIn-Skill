@@ -7,14 +7,14 @@ description: 一站式签到/领券综合工具，整合24个已抓包验证的�
 
 # 签到啦 · 一键签到/领券合集
 
-整合二十四个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 16 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合二十四个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
 | 南航（中国南方航空小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 签到抽奖机会检测（抽奖消耗半自动） | Python 标准库（H5 重登需 Playwright） |
 | **美团系（4 项，总控链内串行）** | `scripts/mt_api_coupon.py`<br>`scripts/mt_gundam_coupon.py`<br>`scripts/mt_union_coupon.py`<br>`scripts/mt_answer.py` | ①红包墙每日领券+营销页红包（rightCode 级幂等）②福利社跨券墙+限时抢+天降掉券 ③分销会场券包+内嵌跨券墙（单日约 ¥180）④答题七日签到+每日任务现金（WebSocket 重放） | Python + Node（mtgsig/H5 签名沙箱） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
-| **WorkBuddy（2 项，链内串行）** | `scripts/wb_score.py`<br>`scripts/wb_growth.py` | ①Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天）②成长中心 6 项奖励补齐（盲盒/连登兑换/断登补签/接任务/领任务奖，全幂等） | Python 标准库（底层调 totorosir-workbuddy-score skill） |
+| **WorkBuddy系（3 项，链内串行）** | `scripts/wb_score.py`<br>`scripts/wb_growth.py`<br>`scripts/workbuddy_intl_credits.py` | ①Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天）②成长中心 6 项奖励补齐（盲盒/连登兑换/断登补签/接任务/领任务奖，全幂等）③**国际版**（www.workbuddy.ai）每日签到积分：★路径**不带 `/v2`**、**不带**设备指纹头；★判定只看响应体 `code`（重复领取 HTTP 400 + code 10001）；★★**需国际版独立账号**（国内 .cn 态在 .ai 域被 APISIX 网关 401，网关认 session cookie 不认 Bearer）；未配置时 `[skip]` 退 0 | Python 标准库（①②底层调 totorosir-workbuddy-score skill；③标准库） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
@@ -25,7 +25,6 @@ description: 一站式签到/领券综合工具，整合24个已抓包验证的�
 | 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 |
 | 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分） | Python 标准库 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3` | Python 标准库 |
-| WorkBuddy 国际版 | `scripts/workbuddy_intl_credits.py` | 每日签到积分（国内版实测 100/天）。★路径**不带 `/v2`**（国际版 `billingPrefix=""`）、**不带**设备指纹头。★判定只看响应体 `code`（重复领取是 HTTP 400 + code 10001）。★★**需国际版独立账号**：国内 `www.workbuddy.cn` 登录态在 `.ai` 域被 APISIX 网关 401（HTML 非 JSON），网关认 session cookie 不认 Bearer；未配置时脚本 `[skip]` 退 0 | Python 标准库 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（`zcode.z.ai`）。★查额度前**必须先补 `event/report` 激活**（app_launch + app_daily_active），否则 preview 空列表 → **稳定误报「今日已领」**；今日已领判据 = 可领 plan 数为 0。★`code 1003`=已领取（**属成功**）、`3007`=captcha 无效。★★**领取端点强制阿里云验证码**（不带/非法都 400/3007，且校验前置于 plan 校验）→ 无 captcha 时提示人工领取，不算失败 | Python 标准库 |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
@@ -33,7 +32,7 @@ description: 一站式签到/领券综合工具，整合24个已抓包验证的�
 
 > **工作方式（2026-10-16 更新）**：抓包不再要求用户「复制整条请求粘过来」——agent 直接用 reqable MCP 过滤并取记录，再用 `reqable_hunt.py harvest` 落地。**用户只需要在小程序/浏览器里做一次动作**。MCP 不可用时才退回第一节的手工抓包。你不需要记命令、不需要懂字段，脚本命令只在「导出脚本自用」时才需要（见文末）。
 
-> **同一家企业的多个产品已合并为一组**（美团系 / 小米系 / 讯飞Loomy / WorkBuddy / 阿里系 / 利宝）：上面表格中同组脚本按所列顺序依次执行即可，等价于总控的链内串行；各组共享一份配置、各写独立 state，互不影响。
+> **同一家企业的多个产品已合并为一组**（美团系 / 小米系 / 讯飞Loomy / WorkBuddy系 / 阿里系 / 利宝）：上面表格中同组脚本按所列顺序依次执行即可，等价于总控的链内串行；各组共享一份配置、各写独立 state，互不影响。
 
 ---
 
@@ -337,7 +336,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★幂等：`claim_result`（1=本次真领取 / 2=已领过），重复领取同样 HTTP 200
 - 断线症状：`base_resp.status_code` 非 0 → 按 status_msg 处置；401/403 → 重新抓包
 
-### 20) WorkBuddy 国际版（2026-10-16 建成）
+### 20) WorkBuddy 国际版（2026-10-16 建成；已并入总控 9-wb「WorkBuddy系」单链第 3 步）
 
 协议来源：**本机 WorkBuddyAI 5.8.3 的 `resources/app.asar` 逆向**（不是 dsh 项目——dsh 对 5.5.2 的判断"国际版无签到接口"在 5.8.3 已被推翻，见下）。
 

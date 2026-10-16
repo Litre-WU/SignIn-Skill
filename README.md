@@ -2,14 +2,14 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 16 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 15 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
 | 美团系（4 项） | `scripts/mt_api_coupon.py`<br>`scripts/mt_gundam_coupon.py`<br>`scripts/mt_union_coupon.py`<br>`scripts/mt_answer.py` | 红包墙领券 + 福利社 + 分销会场 + 答题现金（总控合并为单一任务，链内串行） |
 | 南航（小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 抽奖机会检测（sessionId 需抓包 refresh） |
 | 魔搭 ModelScope | `scripts/ms_magicube.py` | 魔粒 +290/日（登录 250 + 点赞刷分 40） |
-| WorkBuddy（2 项） | `scripts/wb_score.py`<br>`scripts/wb_growth.py` | Buddy 加油站签到 + 派猫猫旅行 + 成长中心 6 项奖励自动补齐（同一凭证域，链内串行） |
+| WorkBuddy系（3 项） | `scripts/wb_score.py`<br>`scripts/wb_growth.py`<br>`scripts/workbuddy_intl_credits.py` | Buddy 加油站签到 + 派猫猫旅行 + 成长中心 6 项奖励自动补齐 + **国际版**（www.workbuddy.ai）每日签到（★国际版需独立账号 cookie，未配置时链内 skip 退 0；路径不带 /v2、无设备指纹头，重复领取 HTTP 400 + code 10001 属幂等成功）。总控合并为单一任务，链内串行 |
 | 办公小浣熊（商汤） | `scripts/xhx_office_points.py` | 每日 300 积分确认（会话活跃自动入账，无手动签到接口） |
 | 讯飞Loomy（2 项） | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | Web 端积分 + 桌面端新手任务（总控合并为单一任务，链内串行） |
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
@@ -20,7 +20,6 @@
 | TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
 | LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3 |
-| WorkBuddy 国际版 | `scripts/workbuddy_intl_credits.py` | 每日签到积分（国内版实测 100/天）；逆向本机 WorkBuddyAI 5.8.3 app.asar，★国际版路径不带 /v2 前缀、不带设备指纹头；★判定只看响应体 code（重复领取 HTTP 400 + code 10001）；★★需国际版独立账号——国内 www.workbuddy.cn 登录态在 .ai 域被 APISIX 网关 401；未配置时 skip 退 0 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
 
 ## 安装
