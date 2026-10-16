@@ -436,8 +436,13 @@ def _core(try_claim_even_if_not_claimable=False):
 
     st, data, why = get_delivery(cookie, cftk)
     if data is None:
-        print("[失败] delivery %s —【华为码道失效】%s"
-              % (why, "在 CodeArts Agent 里重新登录一次即可续上" if cred else "cookie 需重抓"))
+        # 走回退链路（cookie）时别急着让用户抓包：多数情况是 CodeArts Agent 没开着，
+        # 桌面端临时凭证读不到才降级到 cookie，而 cookie 那份早就不新了。
+        fix = ("IAM 临时凭证已拿到但接口空响应，可能是活动下线或签名口径变化"
+               if cred else
+               "先打开并登录 CodeArts Agent（免抓包链路会自己恢复；现在读不到桌面端凭证：%s）；"
+               "确实没用该客户端时才需要重抓 devcloud cookie" % _CRED["why"])
+        print("[失败] delivery %s —【华为码道失效】%s" % (why, fix))
         return 3
 
     items = data.get("items") or []

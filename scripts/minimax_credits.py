@@ -134,6 +134,20 @@ def _check_base_resp(payload):
     return None
 
 
+def _auth_err(st, payload):
+    """把登录态问题从「解析失败」里剥出来：401/403 或只有 error/message 的错误体，
+    都是 token 掉了，不是响应形状变了。（2026-10-16 实测：过期 token 返 `{"error":"invalid access token"}`，
+    被 parse_panel 的硬约束兜成「面板解析失败」，用户看不出该重抓凭证。）"""
+    if isinstance(payload, dict) and st in (401, 403):
+        msg = str(payload.get("error") or payload.get("message") or payload.get("_raw") or "")[:60]
+        return "【MiniMax 登录态失效】HTTP %s %s —— 重新登录 MiniMax Code 后抓任意 agent.minimax.cn 请求的 " \
+               "Authorization（去掉 Bearer 前缀）写回 minimax_config.json" % (st, msg)
+    if isinstance(payload, dict) and not payload.get("base_resp") and (
+            payload.get("error") or payload.get("_raw")):
+        return "接口报错：HTTP %s %s" % (st, str(payload.get("error") or payload.get("_raw"))[:80])
+    return ""
+
+
 def _num(v):
     return v if isinstance(v, (int, float)) and not isinstance(v, bool) else None
 
@@ -215,6 +229,9 @@ def fetch_status(cfg):
     st, payload = _request(url, cfg)
     if st == 0:
         return None, payload.get("_error", "network error")
+    bad = _auth_err(st, payload)
+    if bad:
+        return None, bad
     err = _check_base_resp(payload)
     if err:
         return None, err
@@ -230,6 +247,9 @@ def claim(cfg):
     st, payload = _request(url, cfg, "POST", {})
     if st == 0:
         return "failed", payload.get("_error", "network error")
+    bad = _auth_err(st, payload)
+    if bad:
+        return "failed", bad
     err = _check_base_resp(payload)
     if err:
         return "failed", err
