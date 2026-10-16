@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 14 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 17 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -20,6 +20,9 @@
 | TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
 | LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3 |
+| WorkBuddy 国际版 | `scripts/workbuddy_intl_credits.py` | 每日签到积分（国内版实测 100/天）；逆向本机 WorkBuddyAI 5.8.3 app.asar，★国际版路径不带 /v2 前缀、不带设备指纹头；★判定只看响应体 code（重复领取 HTTP 400 + code 10001）；★★需国际版独立账号——国内 www.workbuddy.cn 登录态在 .ai 域被 APISIX 网关 401；未配置时 skip 退 0 |
+| Cline | `scripts/cline_credits.py` | ★**没有**每日签到接口（逆向 Our Free Model 客户端确认）→ 本脚本仅播报余额；GET /api/v1/users/{account_id}/balance，balance 按 1e5 缩放换算 USD；★token 必须带 'workos:' 前缀（脚本自动补）；需抓包拿 access_token + account_id |
+| ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
 
 ## 安装
 
@@ -57,7 +60,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    - `yp_rpsign_config.example.json` → `yp_rpsign_config.json` — 有品每日签到（红包）
    - `hw_codearts_config.example.json` → `hw_codearts_config.json` — 华为码道 CodeArts Doer
    - `qwenwork_config.example.json` → `qwenwork_config.json` — 千问办公（阿里）
-   - `qoder_config.example.json` → `qoder_config.json` — Qoder CN（阿里）
+   - `qoder_config.example.json` → `qoder_config.json` — Qoder（阿里，双区）
    - `mt_union_config.example.json` → `mt_union_config.json` — 美团分销会场
 4. 运行（幂等，可重复跑）：
    ```bash
@@ -88,7 +91,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/hw_codearts.py auto                   # 华为码道 CodeArts Doer
    python scripts/hw_codearts.py init '<cookie>'
    python scripts/hw_codearts.py probe
-   python scripts/qoder_credits.py auto                 # Qoder CN（阿里）
+   python scripts/qoder_credits.py auto                 # Qoder（阿里，双区）
    python scripts/qoder_credits.py status
    python scripts/qoder_credits.py probe
    python scripts/trae_credits.py auto                  # TRAE（字节跳动）
@@ -100,6 +103,14 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/minimax_credits.py auto               # MiniMax Code
    python scripts/minimax_credits.py status
    python scripts/minimax_credits.py init
+   python scripts/workbuddy_intl_credits.py auto        # WorkBuddy 国际版
+   python scripts/workbuddy_intl_credits.py status
+   python scripts/workbuddy_intl_credits.py init
+   python scripts/cline_credits.py status               # Cline
+   python scripts/cline_credits.py init
+   python scripts/zcode_credits.py auto                 # ZCode（智谱）
+   python scripts/zcode_credits.py status
+   python scripts/zcode_credits.py init
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 

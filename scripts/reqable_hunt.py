@@ -307,6 +307,65 @@ REGISTRY = [
         "verify": lambda rec: bool(hdr(rec, "authorization")),
         "note": "token 实测前缀 mmoat_（60 字符非 JWT）；timezone_id 脚本默认 Asia/Shanghai，不用抓",
     },
+    {
+        "id": "workbuddy-intl", "name": "WorkBuddy 国际版",
+        "action": "★浏览器打开并登录 https://www.workbuddy.ai ，随便点一下触发 API 请求"
+                  "（需要**国际版独立账号**；国内 www.workbuddy.cn 的登录态在 .ai 域被网关 401）",
+        "filter": {"type": "host", "hosts": ["www.workbuddy.ai"]},
+        "match": lambda rec: "www.workbuddy.ai" in (rec.get("url") or ""),
+        # ★网关是 APISIX session 鉴权 → cookie 优先；Bearer 兜底但大概率仍 401。
+        "extract": lambda rec: {
+            "cookie": hdr_joined(rec, "cookie"),
+            "token": hdr(rec, "authorization").replace("Bearer ", "").strip(),
+        },
+        "land": lambda f: [PY, os.path.join(HERE, "workbuddy_intl_credits.py"), "init"]
+                          + (["--cookie", f["cookie"]] if f.get("cookie") else [])
+                          + (["--token", f["token"]] if f.get("token") else []),
+        "verify": lambda rec: bool(hdr_joined(rec, "cookie") or hdr(rec, "authorization")),
+        "note": "站点可达性自检：https://www.workbuddy.ai/v3/config 应 200 code:0；"
+                "而 /billing/meter/* 无有效 session 时返回 APISIX 网关 401（HTML，非业务 JSON）",
+    },
+    {
+        "id": "qoder-intl", "name": "Qoder 国际版",
+        "action": "打开 Qoder 国际版客户端（qoder.com 体系）并登录，进积分页触发一次请求",
+        "filter": {"type": "host", "hosts": ["openapi.qoder.sh"]},
+        "match": lambda rec: "openapi.qoder.sh" in (rec.get("url") or ""),
+        "extract": lambda rec: {"token": hdr(rec, "authorization").replace("Bearer ", "").strip()},
+        "land": lambda f: [PY, os.path.join(HERE, "qoder_credits.py"), "init",
+                           "--variant", "intl"],
+        "verify": lambda rec: bool(hdr(rec, "authorization")),
+        "note": "★脚本优先免抓包读 %APPDATA%/com.qoder.app.stable|Qoder 的 auth.v1.dat，"
+                "抓包仅作兜底（写 qoder_intl_config.json）；两区共用 cosy-clienttype:10",
+    },
+    {
+        "id": "cline", "name": "Cline（仅余额，无签到）",
+        "action": "在 VS Code 的 Cline 里发一次请求（或打开 Cline 账户页），抓 api.cline.bot",
+        "filter": {"type": "host", "hosts": ["api.cline.bot"]},
+        "match": lambda rec: "api.cline.bot" in (rec.get("url") or ""),
+        "extract": lambda rec: {"token": hdr(rec, "authorization")
+                                .replace("Bearer ", "").replace("workos:", "").strip()},
+        "land": lambda f: [PY, os.path.join(HERE, "cline_credits.py"), "init",
+                           "--token", f["token"], "--account", f.get("account", "")],
+        "verify": lambda rec: bool(hdr(rec, "authorization")),
+        "note": "★Authorization 需带 'workos:' 前缀（脚本自动补），抓包时去掉即可；"
+                "★account_id 是余额接口路径参数，需另行从响应/账户页取得（抓包填不到时手工 init 补）",
+    },
+    {
+        "id": "zcode", "name": "ZCode（智谱）",
+        "action": "打开 ZCode 客户端并登录（会请求 zcode.z.ai），抓一条带 X-Device-Mid 的请求",
+        "filter": {"type": "host", "hosts": ["zcode.z.ai"]},
+        "match": lambda rec: "zcode.z.ai" in (rec.get("url") or ""),
+        "extract": lambda rec: {
+            "jwt": hdr(rec, "authorization").replace("Bearer ", "").strip(),
+            "mid": hdr(rec, "x-device-mid"),
+        },
+        "land": lambda f: [PY, os.path.join(HERE, "zcode_credits.py"), "init"]
+                          + (["--jwt", f["jwt"]] if f.get("jwt") else [])
+                          + (["--mid", f["mid"]] if f.get("mid") else []),
+        "verify": lambda rec: bool(hdr(rec, "x-device-mid")),
+        "note": "★凭据已从『读 ~/.zcode/v2/credentials.json』改为 OAuth（上游 2026-10-05 删除免抓包），"
+                "必须抓 zcode_jwt + device_mid；领取还需阿里云验证码（status 查询不需要）",
+    },
 ]
 
 
@@ -462,7 +521,11 @@ def cmd_harvest(args):
                     ({"csair": "csair_config.json", "modelscope": "ms_config.json", "libao": "libao_config.json",
                       "gr": "gr_config.json", "huawei": "hw_codearts_config.json",
                       "trae": "trae_config.json", "lobsterai": "lobsterai_config.json",
-                      "minimax": "minimax_config.json"}.get(pid, "") or "",) if n]
+                      "minimax": "minimax_config.json",
+                      "workbuddy-intl": "workbuddy_intl_config.json",
+                      "qoder-intl": "qoder_intl_config.json",
+                      "cline": "cline_config.json",
+                      "zcode": "zcode_config.json"}.get(pid, "") or "",) if n]
             for cf in cfgs:
                 if os.path.exists(cf):
                     bak = cf + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
