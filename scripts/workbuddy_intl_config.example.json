@@ -1,0 +1,6 @@
+{
+  "//": "WorkBuddy 国际版（www.workbuddy.ai）每日签到配置。★国际版网关是 APISIX session 鉴权，Bearer 会被挡，优先用浏览器登录 www.workbuddy.ai 后的整串 Cookie 填 cookie；access_token 仅作兜底。两者至少填一个，都填时 cookie 优先。★国内版（www.workbuddy.cn）登录态在国际版域无效（实测网关 401），不要混用——国内版签到由 wb_score.py 负责。",
+  "cookie": "<浏览器登录 www.workbuddy.ai 后复制的整串 Cookie，推荐>",
+  "access_token": "<兜底：Bearer token，网关可能仍返回 401>",
+  "domain": "www.workbuddy.ai"
+}

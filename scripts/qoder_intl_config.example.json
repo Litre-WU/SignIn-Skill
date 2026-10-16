@@ -1,0 +1,5 @@
+{
+  "//": "Qoder 国际版配置（qoder.sh 体系）。★脚本优先免抓包读 %APPDATA%/com.qoder.app.stable 或 %APPDATA%/Qoder 下的 auth.v1.dat（与 CN 版同一套 Chromium v10 解密链），本文件仅作兜底。与 CN 版差异只有 host（openapi.qoder.sh vs openapi.qoder.com.cn）与 UA；两区共用 cosy-clienttype:10。",
+  "token": "dt-...",
+  "refreshToken": "drt-..."
+}

@@ -1,0 +1,7 @@
+{
+  "//": "TRAE（字节跳动 IDE）每日签到配置。抓包任意 api.trae.cn 请求：Authorization 头去掉 'Cloud-IDE-JWT ' 前缀填 access_token；X-Uid 头填 uid。device_id/machine_id 可缺省（按 uid 确定性派生）。",
+  "access_token": "<Cloud-IDE-JWT 值，抓包 api.trae.cn 请求的 Authorization 头去掉前缀>",
+  "uid": "<X-Uid 头的值>",
+  "device_id": "",
+  "machine_id": ""
+}

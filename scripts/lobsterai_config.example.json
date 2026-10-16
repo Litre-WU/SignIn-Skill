@@ -1,0 +1,5 @@
+{
+  "//": "模式B（桌面客户端）：Authorization 头去掉 'Bearer ' 前缀。注意桌面端默认 direct mode 不走系统代理，Reqable 抓不到",
+  "cookie": "<整串 Cookie，含 lobsterai_web_session / NTES_YD_SESS / DICT_SESS / P_INFO>",
+  "access_token": "<Bearer 值，抓包 lobsterai-server.youdao.com 请求的 Authorization 头去掉前缀>"
+}

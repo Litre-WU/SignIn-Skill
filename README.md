@@ -60,6 +60,12 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    - `qwenwork_config.example.json` → `qwenwork_config.json` — 千问办公（阿里）
    - `qoder_config.example.json` → `qoder_config.json` — Qoder（阿里，双区）
    - `mt_union_config.example.json` → `mt_union_config.json` — 美团分销会场
+   - `lobsterai_config.example.json` → `lobsterai_config.json` — LobsterAI（有道）
+   - `minimax_config.example.json` → `minimax_config.json` — MiniMax Code
+   - `qoder_intl_config.example.json` → `qoder_intl_config.json` — Qoder（阿里，双区）
+   - `trae_config.example.json` → `trae_config.json` — TRAE（字节跳动）
+   - `workbuddy_intl_config.example.json` → `workbuddy_intl_config.json` — WorkBuddy 国际版
+   - `zcode_config.example.json` → `zcode_config.json` — ZCode（智谱）
 4. 运行（幂等，可重复跑）：
    ```bash
    python scripts/mt_api_coupon.py claim                # 美团券包（惠省小程序首页红包墙）
@@ -128,3 +134,23 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 - 凭证有效期有限（分钟~天级），且部分平台是**服务端轮换制**（不是自然过期），失效后需重新抓包
 - 自动化操作可能违反部分平台的服务条款，风险自负；请勿高频调用，接口异常先停手排查
 - 仅供学习交流
+
+---
+
+## 我在用的 AI 工具（走我的入口注册有新人积分）
+
+这个仓库的自动化就跑在下面这些工具里，顺手把我的邀请入口放在一起，注册时带上就能领新人礼包：
+
+- **WorkBuddy**（我的 AI 工作搭子，仓库里 `wb_score.py` / `wb_growth.py` 签到链路就是它的）
+  注册入口：<https://www.workbuddy.cn/events/invite?inviteCode=thb5u68d9bp6oc>
+- **Loomy（讯飞）** — 比龙虾🦞更易上手、更好用。下载安装后输入我的专属邀请码 **`DF9N3T`** 即可开启体验。
+  下载：<https://loomy.xunfei.cn/download>
+- **TRAE（字节 AI 编程）** — 我用它搞定各类编程任务（仓库里 `trae_credits.py` 每日签到领积分就是给它写的）。
+  **通过下面链接注册并登录桌面端，新用户一次性得 5,000 积分**：
+  <https://www.trae.cn/events/code-fission/9TBNW7SJTGSW?utm_source=copy_link&utm_medium=code_fission>
+- **LobsterAI（有道龙虾）** — 免费体验，我的专属邀请码 **`qm1IRC`**，登录页填入得 **300 积分**新人礼包（`lobsterai_credits.py` 同样是为它写的）。
+  1. 点链接下载：<https://lobsterai.youdao.com/#/index?keyfrom=invitation>
+  2. 安装后打开应用，点【登录】
+  3. 在登录页输入邀请码 `qm1IRC`，领取 300 积分新人礼包
+
+我自己在用，确实好用，所以放这儿了。这些链接与本项目功能无关，纯分享；仓库的自动化能力以上面的小节为准。

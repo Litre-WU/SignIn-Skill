@@ -1,0 +1,5 @@
+{
+  "//": "MiniMax Code 每日签到配置。抓包任意 agent.minimax.cn 请求：Authorization 头去掉 'Bearer ' 前缀填 access_token（实测前缀 mmoat_，60字符，非JWT）。timezone_id 为客户端 IANA 时区名，国内默认 Asia/Shanghai。",
+  "access_token": "<Bearer 值，抓包 agent.minimax.cn 请求的 Authorization 头去掉前缀>",
+  "timezone_id": "Asia/Shanghai"
+}
