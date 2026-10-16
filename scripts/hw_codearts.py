@@ -112,7 +112,7 @@ def cftk_from_cookie(cookie):
 #   字段 = accessKey/secretKey/securitytoken/expires_at/refresh_token/loginContext(PKCE+DPoP EC key)
 # 客户端访问权益接口时用 SDK-HMAC-SHA256 对请求签名（out-build/vs/platform/request/common/signer.js），
 # 全程不带浏览器 cookie —— 所以这条链路不会像 devcloud cookie 那样几天就失效。
-_CRED = {"tried": False, "cred": None, "why": ""}
+_CRED = {"tried": False, "cred": None, "why": "", "src": ""}
 
 
 def _state_paths():
@@ -122,10 +122,31 @@ def _state_paths():
 
 
 def client_credential():
-    """返回 {accessKey, secretKey, securitytoken, expires_at} 或 None（并给原因）。"""
+    """返回 {accessKey, secretKey, securitytoken, expires_at} 或 None（并给原因）。
+
+    ★2026-10-16 账号状态保持（参考 Our Free Model src/oauth.ts 逆向）：
+      临时 AK/SK 只有约 2 小时寿命，客户端没开着就会过期。此前本函数一旦判定过期
+      就回退 devcloud cookie（几天必失效）→ 天天误报【华为码道失效】。
+      现在改为：过期时用 session 里的 refresh_token + PKCE codeVerifier + DPoP 私钥
+      直接向 STS 换新的临时凭证（hw_codearts_refresh.get_valid_credential），
+      无需客户端在前台即可续命；refresh_token 本身约 28 天、每刷一次轮换一次。
+    """
     if _CRED["tried"]:
         return _CRED["cred"]
     _CRED["tried"] = True
+    # 先走续期模块（内部已含「新鲜直用 / 过期刷新 / 缓存候选重试」全逻辑）
+    try:
+        import hw_codearts_refresh as _hr
+        cred, src = _hr.get_valid_credential(auto_refresh=True)
+        if cred and cred.get("accessKey") and cred.get("secretKey"):
+            _CRED["cred"] = cred
+            _CRED["src"] = src
+            return cred
+        _CRED["why"] = (src if isinstance(src, str) and src else "续期模块无可用凭证") + "（回退 cookie 链路）"
+        return None
+    except Exception as e:
+        _CRED["why"] = "凭证续期模块异常：%s: %s → 走原始 state.vscdb 直读" % (type(e).__name__, str(e)[:120])
+    # ── 兜底：续期模块本身出异常时，退回旧「直读 vscdb」路径 ──
     db, ud = _state_paths()
     if not os.path.isfile(db):
         _CRED["why"] = "没找到 CodeArts Agent 的 state.vscdb（未安装/未登录/换机器：%s）" % db
@@ -430,9 +451,10 @@ def _core(try_claim_even_if_not_claimable=False):
     cookie = cfg.get("cookie") or ""
     cftk = cfg.get("cftk") or cftk_from_cookie(cookie)
     cid = str(cfg.get("campaign_id") or "1")
-    print("[鉴权] %s" % (("snap-access + 桌面端 AK/SK（免抓包）expires_at=%s"
-                          % (cred.get("expires_at") or "?")) if cred
-                         else "devcloud cookie/cftk（抓包）"))
+    print("[鉴权] %s" % (((("snap-access + 桌面端 AK/SK（免抓包）expires_at=%s（来源=%s）")
+                           % (cred.get("expires_at") or "?", _CRED.get("src") or "client-fresh"))
+                          if cred
+                          else "devcloud cookie/cftk（抓包）")))
 
     st, data, why = get_delivery(cookie, cftk)
     if data is None:

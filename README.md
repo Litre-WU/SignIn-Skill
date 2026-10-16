@@ -16,7 +16,7 @@
 | 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到 + 天天抽奖（做任务赚机会 → 转盘抽奖） |
 | 阿里系（3 项） | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | 阿里云盘签到（浏览器 Local Storage 实时取凭证）+ 千问办公每日 100 积分 + Qoder CN 每日 100 Credits（后两者桌面端 v10 信封解密取凭证，排末位规避 10:00 窗口边界），均无需抓包 |
 | 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
-| 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效） |
+| 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效）；★账号状态保持：桌面端临时 AK/SK（约 2h 寿命）过期时，脚本用 session 里的 refresh_token（约 28 天）+ PKCE codeVerifier + DPoP 私钥直接向 STS 离线换新凭证（方法参考 Our Free Model src/oauth.ts 逆向），**无需开着 CodeArts Agent**；刷出的新临时凭证本地缓存 2h 内复用，一天跑多次只消耗一次轮换 |
 | TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
 | LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3 |
@@ -95,6 +95,8 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/hw_codearts.py auto                   # 华为码道 CodeArts Doer
    python scripts/hw_codearts.py init '<cookie>'
    python scripts/hw_codearts.py probe
+   python scripts/hw_codearts_refresh.py probe
+   python scripts/hw_codearts_refresh.py refresh
    python scripts/qoder_credits.py auto                 # Qoder（阿里，双区）
    python scripts/qoder_credits.py status
    python scripts/qoder_credits.py probe
@@ -125,6 +127,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 
 - `browser_cookies.py` — 浏览器 Cookie 提取库：绕 Chromium 独占锁读取并解密 cookie；跨平台 TEMP 整库缓存复用
 - `_mishop_client.py` — 小米商城 mtop 客户端库：MiShop 设备头/服务Token/请求封装（xm_mijin.py 的依赖，凭证优先读 xm_mijin_config.json）
+- `hw_codearts_refresh.py` — 华为码道凭证离线续期库：refresh_token+PKCE+DPoP(ES256) 向 STS 换新临时 AK/SK（hw_codearts.py 的依赖，方法参考 Our Free Model src/oauth.ts 逆向）
 - `reqable_hunt.py` — Reqable 自动抓包入口：抓包前置体检 + 平台注册表 + 「MCP 记录 JSON → 凭证 → 写回 config」：doctor / scan / harvest [--apply] / restore-proxy（关 Reqable 后必跑，否则系统代理残留会让脚本成片假失效）
 
 
