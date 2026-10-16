@@ -2,12 +2,12 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合25个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、Cline 余额播报（无签到接口）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"Cline"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合24个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合二十五个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 17 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合二十四个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 16 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -26,7 +26,6 @@ description: 一站式签到/领券综合工具，整合25个已抓包验证的�
 | 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分） | Python 标准库 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3` | Python 标准库 |
 | WorkBuddy 国际版 | `scripts/workbuddy_intl_credits.py` | 每日签到积分（国内版实测 100/天）。★路径**不带 `/v2`**（国际版 `billingPrefix=""`）、**不带**设备指纹头。★判定只看响应体 `code`（重复领取是 HTTP 400 + code 10001）。★★**需国际版独立账号**：国内 `www.workbuddy.cn` 登录态在 `.ai` 域被 APISIX 网关 401（HTML 非 JSON），网关认 session cookie 不认 Bearer；未配置时脚本 `[skip]` 退 0 | Python 标准库 |
-| Cline | `scripts/cline_credits.py` | ★★**没有每日签到接口**（逆向 OFM 客户端 `cline-credits.ts` 确认只有余额）→ 仅播报余额。`GET api.cline.bot/api/v1/users/{account_id}/balance`，★`balance` 放大 **1e5** 需除以 100000 得 USD；★token 必须带 **`workos:`** 前缀（脚本自动补）；需抓包拿 token + account_id | Python 标准库 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（`zcode.z.ai`）。★查额度前**必须先补 `event/report` 激活**（app_launch + app_daily_active），否则 preview 空列表 → **稳定误报「今日已领」**；今日已领判据 = 可领 plan 数为 0。★`code 1003`=已领取（**属成功**）、`3007`=captcha 无效。★★**领取端点强制阿里云验证码**（不带/非法都 400/3007，且校验前置于 plan 校验）→ 无 captcha 时提示人工领取，不算失败 | Python 标准库 |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
@@ -366,17 +365,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★按「同企合并」原则已并入 `qoder_credits.py`，用 `--variant cn|intl|all`（默认 all 两区串行），**不新增任务**；国际版未安装时静默跳过（不是失效）
 - 国际版 user-data 目录给候选 `%APPDATA%/com.qoder.app.stable` 与 `%APPDATA%/Qoder`（本机未装国际版，未实测到真实目录名）；凭据解密链与 CN 完全相同（Chromium v10 信封）
 
-### 22) Cline（2026-10-16 建成，**只有余额**）
-
-- ★★先说清楚：**Cline 没有每日签到/领积分接口**。逆向 `business.mjs` 的 `src/cline-credits.ts` 段，该模块只导出 `fetchClineCreditBalance()`，没有任何 claim/checkin，与 dsh 上游把它归为「调用即判定」的不支持渠道一致
-- `GET https://api.cline.bot/api/v1/users/{account_id}/balance` → `{success, data:{balance}}`
-- ★`balance` 是**放大 1e5 的整数**（`CLINE_BALANCE_SCALE`），真实 USD = balance / 100000（实测 5.0 USD → 500000）
-- ★`Authorization: Bearer workos:<token>` —— **`workos:` 前缀必带**（`product.tokenPrefix`），脚本自动补
-- 客户端头照抄 `clientHeaders`：`HTTP-Referer: https://cline.bot` / `X-Title: Cline` / `X-IS-MULTIROOT: false` / `X-CLIENT-TYPE: cline-sdk`
-- 凭据走 WorkOS OAuth（`api.workos.com`），**无本机可解密文件** → 必须抓包；`account_id` 是路径参数，必填
-- 未配置时脚本 `[skip]` 退 0；本步只播报余额，不执行任何写操作
-
-### 23) ZCode（智谱，2026-10-16 建成）
+### 22) ZCode（智谱，2026-10-16 建成）
 
 - 端点（origin `https://zcode.z.ai`）：`GET /api/v1/zcode-plan/billing/balance`、`GET /api/v1/zcode-plan/billing/preview?app_version=&platform=win32`、`POST /api/v1/zcode-plan/billing/claim`（body `{plan_id}`）、`POST /api/v1/event/report`、`GET /api/v1/client/configs`
 - ★**必须先补激活上报**（`app_launch` + `app_daily_active`）再查 preview —— 服务端不主动推送活动，不补就会拿到空列表 → **稳定误报「今日已领」**（与 Qoder 那次「按返回顺序取首个 → 静默漏领」同类坑）

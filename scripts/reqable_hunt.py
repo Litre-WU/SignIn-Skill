@@ -338,19 +338,6 @@ REGISTRY = [
                 "抓包仅作兜底（写 qoder_intl_config.json）；两区共用 cosy-clienttype:10",
     },
     {
-        "id": "cline", "name": "Cline（仅余额，无签到）",
-        "action": "在 VS Code 的 Cline 里发一次请求（或打开 Cline 账户页），抓 api.cline.bot",
-        "filter": {"type": "host", "hosts": ["api.cline.bot"]},
-        "match": lambda rec: "api.cline.bot" in (rec.get("url") or ""),
-        "extract": lambda rec: {"token": hdr(rec, "authorization")
-                                .replace("Bearer ", "").replace("workos:", "").strip()},
-        "land": lambda f: [PY, os.path.join(HERE, "cline_credits.py"), "init",
-                           "--token", f["token"], "--account", f.get("account", "")],
-        "verify": lambda rec: bool(hdr(rec, "authorization")),
-        "note": "★Authorization 需带 'workos:' 前缀（脚本自动补），抓包时去掉即可；"
-                "★account_id 是余额接口路径参数，需另行从响应/账户页取得（抓包填不到时手工 init 补）",
-    },
-    {
         "id": "zcode", "name": "ZCode（智谱）",
         "action": "打开 ZCode 客户端并登录（会请求 zcode.z.ai），抓一条带 X-Device-Mid 的请求",
         "filter": {"type": "host", "hosts": ["zcode.z.ai"]},
@@ -524,7 +511,6 @@ def cmd_harvest(args):
                       "minimax": "minimax_config.json",
                       "workbuddy-intl": "workbuddy_intl_config.json",
                       "qoder-intl": "qoder_intl_config.json",
-                      "cline": "cline_config.json",
                       "zcode": "zcode_config.json"}.get(pid, "") or "",) if n]
             for cf in cfgs:
                 if os.path.exists(cf):
