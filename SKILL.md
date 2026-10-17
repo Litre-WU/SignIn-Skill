@@ -2,7 +2,7 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合24个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到+互动中心天天抽奖（做任务赚抽奖机会→转盘抽奖）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合24个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到（互动中心天天抽奖因京东账号/会话级 403 风控已移出总控，仅留复测入口）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分（免抓包，直读桌面端 auth.json 活凭证 + refresh_token 离线续期）、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
@@ -18,14 +18,15 @@ description: 一站式签到/领券综合工具，整合24个已抓包验证的�
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
-| 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）+ **互动中心天天抽奖**（`interact` 子命令：做任务赚抽奖机会→转盘抽奖，红包/优惠券/京豆；幂等，已签/已抽跳过） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
+| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）。★★**互动中心天天抽奖已于 2026-10-17 移出总控**（那组 functionId 是账号/会话级 403 风控，越打越宽；`interact`/`interact_status` 子命令仍保留在脚本里，仅供封锁解除后复测，见 §9b 与 `jd_interact_inpage.py`） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | **阿里系（3 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 ③Qoder CN 每日 100 Credits（30 天有效）：★凭证在桌面端 `auth.v1.dat`（**同一套 v10 解密链**）；campaigns 动态发现 + claim，服务端幂等 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py`<br>`scripts/hw_codearts_refresh.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；★★**账号状态保持（2026-10-16）**：临时 AK/SK（约 2h 寿命）过期时，`hw_codearts_refresh.py` 用 session 里的 `refresh_token`（约 28 天）+ PKCE codeVerifier + DPoP 私钥签 ES256 proof 直接向 STS 离线换新凭证（参考 Our Free Model `src/oauth.ts` 逆向）——**无需开着客户端**；刷出的新凭证缓存 2h 内复用（refresh_token 单次轮换，一天多跑只烧一次）；refresh_token 也终态失效才提示重开客户端登录。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
 | 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 |
 | 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分） | Python 标准库 |
-| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3` | Python 标准库 |
+| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3`。★★**已免抓包（2026-10-17 保活改造）**：直读桌面端 `~/.minimax/auth/prod/cn/mcode-public/auth.json` 的活 token，过期再用 `refresh_token` 离线刷（见 §19） | Python 标准库 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（`zcode.z.ai`）。★查额度前**必须先补 `event/report` 激活**（app_launch + app_daily_active），否则 preview 空列表 → **稳定误报「今日已领」**；今日已领判据 = 可领 plan 数为 0。★`code 1003`=已领取（**属成功**）、`3007`=captcha 无效。★★**领取端点强制阿里云验证码**（不带/非法都 400/3007，且校验前置于 plan 校验）→ 无 captcha 时提示人工领取，不算失败 | Python 标准库 |
+| 京东互动中心（页内复测工具，**不进总控**） | `scripts/jd_interact_inpage.py` | ★互动中心那组 functionId（`assign_query`/`reward_center`/`assign_execute`）是**账号/会话级 403 风控**，urllib、headless、以及**真浏览器里页面自己发的请求**都会 403（详见 §14）。本工具用页面自己的 `PSign`/`getJsToken`/`SHA256` 复刻 `requestColorEncrypto`，**只用于封锁解除后复测**；`check` 只读自检、`auto` 领机会并抽。★会主动拒绝无头 9222（无头结论是假的），永不自启浏览器、永不回收用户实例 | Python 标准库 + websocket-client |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
 | **自动抓包入口（配合 reqable MCP）** | `scripts/reqable_hunt.py` | `doctor [--launch]` 体检 Reqable 进程/系统代理/根证书并给出下一步；`scan` 打印「平台→要抓哪个接口→提哪个字段→落到哪条命令」注册表；`harvest --file rec.json [--apply]` 吃 MCP `capture_live_get_by_id` 的记录原文，自动认平台、抽凭证、备份 config 再写回；`restore-proxy` 撤系统代理（关 Reqable 后必做，否则签到脚本成片假失效） | Python 标准库 + winreg（仅 Windows） |
@@ -178,7 +179,11 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 **无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
 脚本按**新鲜度**三级取 cookie：① CDP 9222 实时读（浏览器开着时唯一能拿到"刚刚登录"的新值）→ ② 磁盘直读（浏览器没在跑时）→ ③ TEMP 快照（可能陈旧，脚本会打印它多少分钟前、并在 `login_expired` 里带纠正提示）。
-★**浏览器正在运行时磁盘 `Cookies` 库是独占锁的，谁都拷不动**（2026-10-15 实测：`CreateFileW(SHARE_ALL)` err=32、`esentutl /y` 回 `-1032 JET_errFileAccessDenied`（加 `/v` 还会挂死）、`robocopy /B`、`cmd copy`、Python `open` 全部失败）—— 所以"刚重新登录却仍 login_expired"通常是**读到了旧快照**，不是服务端拒绝：要么关掉 Thorium 再跑，要么用 `thorium.exe --remote-debugging-port=9222` 启动让 CDP 那条路生效。
+★★**「浏览器开着就拷不动」这条 2026-10-15 的结论已在 2026-10-17 复测收窄——只适用于"整库复制"，不适用于脚本的取数路径**：
+- 仍然成立的：`esentutl /y`（`-1032 JET_errFileAccessDenied`）、`robocopy /B`、`cmd copy`、Python `open()` 这些**要写句柄或整文件独占**的复制手段，Thorium 在跑时确实失败。
+- **不成立**：脚本实际走的是 `CreateFileW(GENERIC_READ=0x80000000, FILE_SHARE_READ|WRITE|DELETE)` **只读直开 + 自己解析 SQLite**，2026-10-17 在「Thorium 正在运行、没开 9222」下实测成功（读到 1,114,112 字节正本、提出 45 个 cookie，且是重登后的新值：`flash` 已变、条数从 38→45）。所以**别一遇"浏览器开着"就叫用户关浏览器或加 9222** —— 先直接跑 `jd_web_signin.py cookie` 看它报的哪一级源。
+- ⚠️ 自己写探测时**千万别带 `GENERIC_WRITE`**（`0xC0000000` 含写）：那样必得 `err=32`，会把"只读其实可用"误判成"库被独占"，进而误报【京东登录失效】或误让用户重开浏览器（本次实踩）。
+- 因此「刚重新登录却仍 login_expired」两种成因都要查：①确实读到旧快照（脚本会在 msg 里带"N 分钟前的磁盘快照"）；②**会话被服务端整体作废**——见下条鉴别诊断。
 
 - 页面：`https://bean.jd.com/myJingBean/list`（SPA；老的 `/bean/index`、`/bean/signIndex.action` 已 404 下线）
 - 查询：`GET api.m.jd.com/?functionId=pc_interact_sign_query&type=1` → 拿 `eaId`/`activityId`/连签天数/今日是否已签
@@ -199,6 +204,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 #### 9b) 互动中心「天天抽奖」转盘（2026-10-12 自行逆向，已实测抽中 6 元红包）
 
+★★**2026-10-17 定案：本节接口全部不再纳入每日总控**（总控的京东链只剩 `jd_web_signin.py auto` 一步）。那组 functionId 目前是**账号/会话级 403 风控**，而且**探测本身会让封锁从"只拒写"扩大到"读写都拒、连真人浏览器里页面自己发的请求也拒"**；协议细节保留在此供封锁解除后复测，复测请按 §14 的保守顺序（先只读观测，写请求最多 1 次）。
+
 京东首页宝箱入口 → `https://interact.jd.com/`（标题「我的京东-互动中心」）。**与京豆是两套 appid，切勿混用**：
 
 | | 京豆签到 | 互动中心 |
@@ -216,7 +223,24 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 自动化的任务范围：`sign`/`followShop`/`productsInfo`/`shoppingActivity`（浏览类 actionType=0，其余=1）；**`order`（需真实下单）跳过**。itemId 复刻前端 `x(task)`：signDetail→productList/activityChannelList/shopList 取 status=1→orderDetail，兜底 "1"。
 
-★★ **WAF 按端点频率限制（实测同一端点连打即 HTTP 403 空响应，且与 thor/eid 会话绑定、可持续 40 分钟以上）**——已内置 4s 节流 + 403 优雅降级（不中断、不重试轰炸，换端点或等次日）。每日任务每次重新提取浏览器 cookie = 新会话 = 天然规避。eaId 缓存 `jd_interact_state.json`，任务列表被限流时用缓存/内置签到任务兜底。
+★★ **互动中心写接口（`pc_interact_assign_execute`）的 HTTP 403 空 body 不是"频率限流"**（2026-10-17 全量复测推翻旧结论）。当日**第一条** POST 即 403、同批 GET 全部正常，"连打才限流"根本不成立；旧文档写的「换日自动恢复」会让人白等。已逐项排除：
+- **频率** → 单次即 403；**登录态** → 同日京豆 `pc_interact_sign_execute`（同一 `_req`/同一 TLS 栈）POST 成功 +2 京豆；
+- **host** → 前端 bundle 里 `VITE_GATEWAY_DOMAIN:"api.m.jd.com"`，与我们一致，不是页面主机；
+- **签名 body 口径** → 前端 `body:SHA256(JSON.stringify(o))` 而请求发原始 JSON，`_jd_node_harness.js` 早已同口径实现（`createHash('sha256')`），非差异点；
+- **Origin 格式** → 脚本曾把 `INTERACT_REFERER`("https://interact.jd.com/") 原样当 Origin 发（畸形），已改 `_origin_of()` 归一为 `https://interact.jd.com`，**修好仍 403**；
+- **sdtoken 缺失** → 403 响应头带 `X-Rp-Sdtoken: set;1800;<值>`（京东风控握手，浏览器 JS 会写成 cookie 再发；它寿命仅 1800s 且由 JS 运行时写入，**浏览器 Cookie 库里根本没有**）。已实现 `_sd_capture()` 自动握手并落 `jd_sdtoken.json` 带上重发——**仍 403，且每次响应都回一支新的**（即服务端从不认可我们回带的这支）；
+- **eid** → 去掉 `x-api-eid-token` 仍 403；**body 形状** → `{eaId,type:5,itemId,extraType,rk,actionType}` 与前端的 `{eaId,type:0,rk}` 精简形都 403。
+~~唯一剩下的差别是「这份 POST 要浏览器内的京东风控 SDK 会话」~~ → **该假设已推翻**（见下「真浏览器同样 403」）。
+★★**无头也不行**（2026-10-17）：headless 实例注入完整 `.jd.com` cookie（83 条，页面确认已登录 `pin/unick` 齐全、`PSign/getJsToken/SHA256/_JdJrTdRiskFpInfo` 全在）后，**连页面自己**发的请求按 functionId 分化：`pc_interact_assign_query` GET / `pc_interact_reward_center` GET / `pc_interact_sign_execute` POST **全 403**，而同页 `pc_interact_kit_query`、`pc_interact_game_query`、`BEAN_*` 是 200。
+★★**真浏览器同样 403 → 定性收口：封锁是账号/会话级、而且会升级**（不是客户端类型问题）：
+- 早先 urllib 的 `pc_interact_assign_query` GET 还能 **200**（能列出「领取今日免费抽奖机会」等待做任务）；
+- 反复诊断（约 7 条被拒 POST + 若干 GET）之后，**用户真实浏览器**（非 headless、日常 profile、已登录、SDK 齐全）里**页面自己**发的同 functionId 也变 403：`assign_query` GET、`reward_center` GET、页面自发的 `sign_execute` POST 全 403，同期 `kit_query`/`game_query`/`BEAN_*` 仍 200，且 DOM 已渲染不出任何任务项。
+- → 两条同时成立：**「首次 403 不是频率限流」**（第一条 POST 就 403、同批 GET 全通）＋**「反复探测会把封锁从写扩大到读、连真浏览器一起拒」**。
+- ★教训（写给未来的自己）：**诊断期同样要按最保守口径控制写请求**。逐变量 A/B 看着严谨，实际是在往风控计数器上加数。正确顺序：先只读观测（听页面自己发请求、看 DOM 渲染），确需写请求时**最多 1 次**，被拒即停手。
+- ★老规则 `绝不可重试轰炸` **不是过时，而是比原先更重要**。判读：出现这类 403 → 当日不再打该 functionId 族；次日**先看页面自身请求是否恢复**（不主动发写请求），恢复了再谈自动化。
+→ 已落地 `scripts/jd_interact_inpage.py`（页内执行版，用页面自己的 `PSign`/`getJsToken`/`SHA256` 复刻 `requestColorEncrypto`；`check` 只读自检、`auto` 领机会并抽）。它**只连你带 `--remote-debugging-port=9222` 启动的真浏览器**，且会**主动拒绝无头的 9222**（无头测出来的 403 是假结论，本人实踩）。★**封锁期间它打出的 403 不能用来证明「页内方案无效」**——真浏览器正被封时它必然同样 403，要等页面自身请求恢复后再复测才有意义。
+现状处置（保留）：4s 节流 + 403 优雅降级（不中断、**绝不重试轰炸**）；`_is_waf_blocked()` 文案已改为「风控拦截」而非「限流」，判读时**不要再写"换日自动恢复"**。
+★顺带暴露一个编排器缺陷：`headless_browser.instance_running()` 在你的 Thorium 明明在跑（14 个进程）时判成「无实例在跑」，于是**用真实 profile** 起了 headless；这种模式下 `cleanup(proc, tag=...)` **收不掉**（tag 只匹配临时 profile），会留下挂着 9222 的僵尸实例。手工精准回收口径：按 cmdline 含 `--headless` 过滤再 terminate，**绝不要** `taskkill //IM thorium.exe`（会误杀用户窗口）。
 
 ---
 
@@ -335,12 +359,28 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ### 19) MiniMax Code（2026-10-16 建成）
 
-协议来源同上（`minimax-credits.ts`，端点来自 asar UI chunk 直读+实测）。电脑打开 MiniMax Code 登录后，抓任意一条 `agent.minimax.cn` 请求发我：`Authorization: Bearer <access_token>`（实测前缀 `mmoat_`，60 字符，非 JWT）。
+协议来源同上（`minimax-credits.ts`，端点来自 asar UI chunk 直读+实测）。★★**2026-10-17 起已免抓包**，见下节「账号状态保持」；手工抓 `Authorization: Bearer <access_token>`（前缀 `mmoat_`，60 字符，非 JWT）只剩兜底用途。
 
 - ★接口：`GET /minimax-cloud/api/v1/signin/status?timezone_id=Asia/Shanghai`（七日面板）、`POST /minimax-cloud/api/v1/signin/claim?timezone_id=...`（body `{}`）、`GET /minimax-cloud/api/v1/credit/details`（余额）
 - ★四个实测结论：①`timezone_id` 必填且为**客户端 IANA 时区名**（不带/非法都报 `invalid timezone_id`，且那是 HTTP 200）；②业务码在 **`base_resp.status_code`**（不是 `code`）；③`points` 是总数、`bonus_points` 是其中「额外」部分，**不得相加**（实测 800 档日 bonus 400，按钮就是「签到得 800」+「额外400」角标）；④今日已领判据 = **`is_today && status==3`**
 - ★幂等：`claim_result`（1=本次真领取 / 2=已领过），重复领取同样 HTTP 200
-- 断线症状：`base_resp.status_code` 非 0 → 按 status_msg 处置；401/403 → 重新抓包
+- 断线症状：`base_resp.status_code` 非 0 → 按 status_msg 处置；401/403 且首行 `[鉴权]` 已写明四级用尽 → 叫用户**打开 MiniMax Code 重登一次**（不要再让人抓包）
+
+#### ★★账号状态保持（2026-10-17 改造，参考 Our Free Model `vendor/channel-pack/src/minimax-oauth.ts`）
+
+**为什么必须改**：`access_token` 寿命**只有约 1 小时**（`expiresAtMs` 距签发实测 ≈3600s），而 MiniMax Code 桌面端**自己每 ~50 分钟就续期并轮换**它。所以手工抓包写进 `minimax_config.json` 的那份必然几天后 401 —— 2026-10-17 实报【MiniMax失效】就是这个原因：config 里那份早被轮换掉，而 `auth.json` 里的活 token 一打就通（HTTP 200、`base_resp.status_code:0`）。
+
+- **四级凭证解析顺序**（`minimax_credits.py` 的 `Session.resolve()`，首行 `[鉴权] 来源=…` 会写明走了哪一级）：
+  1. 桌面端 `~/.minimax/auth/prod/cn/mcode-public/auth.json` → `records` 是**以 `com.minimax.mcode.oauth.prod.cn\0<随机前缀>` 为键**的字典，字段 `accessToken/refreshToken/tokenType/clientId/scopes/audience/expiresAtMs/generation`（★键里带 `\u0000`，别按名字匹配，按 `clientId=="mcode-public"` 挑）。客户端在跑着即未过期 → **直接白嫖它的自动续期，一次刷新都不发**
+  2. 本地缓存 `minimax_session.json`（我们自己刷出来的那份，可能**领先**于桌面端）
+  3. 两份都过期 → 离线刷新：`POST https://account.minimax.cn/oauth2/token`，body `grant_type=refresh_token&refresh_token=<mmort_ 前缀 60 字符>&client_id=mcode-public&scope=agent.default&audience=agent-backend`（`application/x-www-form-urlencoded`）
+  4. 兜底 `minimax_config.json` 里手工抓的 `access_token`
+- ★**单次轮换 + 不回写桌面端**：刷新得到的新 `refresh_token` 只写我们自己的 `minimax_session.json`，**绝不写回 `auth.json`**（客户端在跑会与我们争抢同一支，写回去是把用户的 IDE 往死里整）。候选顺序固定「缓存 → 桌面端 → config」，**同一支只试一次**；`invalid_grant/expired/revoked` 视为**终态**直接断（防重放烧掉整条 token 家族），网络类异常才继续试下一支
+- ★令牌响应硬校验照抄客户端 `parseMinimaxTokenGrant`：`token_type` 必须 `Bearer`、`scope` 必须含 `agent.default`、`expires_in` 必须为正数。★**过期时间只能由 `expires_in` 算** —— `mmoat_` 不是 JWT（0 个点），别去解 payload；若改成「优先解 JWT、解不出就不写 expires_at」，有效期会彻底丢失、账号永远显示「未知」
+- ★`Session.request()` 在业务接口遇 401/403 时**强制刷新并重试恰好一次**（`_retried_401` 防成环），且 force 分支**不回退 config 旧 token**（它刚刚才 401 过）
+- 自检命令：`python minimax_credits.py auth`（只读，报来源/各级 refresh_token **有无**——永不打印值/长度不外泄，并实打一次接口验真）；`auth --force` 强制刷一次
+- ⚠️ **`auth --force` 别在 MiniMax Code 开着的时候随手打**：它会真消耗一次 refresh 轮换，客户端那份随即落后。桌面端在跑时走第 1 级即可，刷新分支只在「两份都过期=客户端没续期（多半是没开）」时才触发——这正是我们把优先级排成「新鲜 token 先于刷新」的原因
+- 判读铁律：首行 `[鉴权] 来源=桌面端 auth.json` = 保活正常；`= 离线刷新 refresh_token` = 客户端没跑、已自动续上；`= config 手工凭证` = 桌面端未装/未登录且无 refresh 可用，才需要人工介入
 
 ### 20) WorkBuddy 国际版（2026-10-16 建成；已并入总控 9-wb「WorkBuddy系」单链第 3 步）
 
@@ -405,7 +445,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 办公小浣熊：每日 300 积分确认（活跃自动入账）；accessToken 临期自动用 refresh_token 换新
 - Loomy：每日积分确认（活跃自动入账）；纯 cookie 鉴权，失效需重抓。桌面端新手任务线（`loomy_desktop_tasks.py`，8 项共 10000 分，账号体系独立）每日检测——未完成自动补齐、满额零副作用跳过、session 到期（14 天）标注【Loomy桌面登录失效】提醒重登
 - 天翼189云盘：每日个人签到领随机空间（`c189_signin.py`，实测 +26MB/天；SSON cookie 鉴权，sessionKey 由 getSessionForPC 换取；幂等，当天重复跑零副作用）
-- 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）+ **互动中心天天抽奖**（`jd_web_signin.py interact`：查抽奖机会→转盘抽奖→做任务（签到/关注店铺/浏览商品/浏览活动，下单类跳过）赚机会→再抽；红包/优惠券/京豆落袋；第 2 个子步骤）
+- 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）。★互动中心天天抽奖**已移出总控**（账号/会话级 403 风控，见 §9b/§14），`interact` 子命令仅留作封锁解除后的复测入口
 - 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
 - 千问办公：每日 100 积分核对（`qwenwork_credits.py auto`；凭证实时解密桌面端 `auth-v2.dat`，免抓包；免费版积分**服务端自动发放、当日有效**，脚本核对日包余额 + 尝试签到接口）
 - Qoder CN：每日 100 Credits 领取（`qoder_credits.py auto`；凭证实时解密桌面端 `auth.v1.dat`，免抓包；campaigns 动态发现 → claim，30 天有效；服务端幂等，重复提交 `replayed=true` 不重复发放；排在阿里系链末位，规避每日 10:00 窗口边界）
@@ -441,7 +481,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 编排器打印「headless 浏览器就绪」，cookie_sync 却报 `[中断] cookie 读取失败: WinError 10061` | 拉起的 headless 实例在「就绪」之后**中途退出**（`/json/version` 曾短暂可达）。旧版一次失败就 rc=2 | 已修复两层：`_wait_online()` 现在校验 9222 的 LISTEN 确属本次拉起的进程（psutil `net_connections`），且要求 Popen 仍存活；`cookie_sync` 读 cookie 失败会收掉死壳**重试一次** |
 | 京东签到 `code:3` 请先登录 | 浏览器里京东登录态失效/被服务端轮换（`order.jd.com` 也会退回欢迎登录页） | 在 Thorium 里打开 jd.com 重新登录；脚本下次运行自动读新 cookie，无需改配置 |
 | 京东签到 `DG-9999 系统异常` | 走的是**已下线的旧接口** `signBeanIndex`（App 端链路，2026-10-12 起不可用） | 改用 Web 端 `jd_web_signin.py`（`pc_interact_sign_execute`）；旧 `jd_signin.py`/`jd_login.py` 已废弃 |
-| 京东互动中心接口返回 HTTP 403（空 body） | WAF 按端点频率限制（与 thor/eid 会话绑定，可持续 40 分钟以上） | 脚本已内置 4s 节流 + 403 优雅降级（不中断）；当日勿再手动连打同端点，等次日任务自动换新 cookie 会话即恢复 |
+| 京东互动中心 `pc_interact_assign_query`/`reward_center`/`assign_execute` 返回 HTTP 403（零字节，响应头带 `X-Rp-Sdtoken: set;…`、`Server: jfe`、`Connection: close`） | ★**首次 403 不是频率限流**（当日第一条 POST 即 403、同批 GET 全通、同日京豆 POST 正常），但**封锁会升级**：反复探测之后连**真实浏览器里页面自己**发的同 functionId GET 也 403（同期 `kit_query`/`game_query` 仍 200，DOM 渲染不出任务列表）→ 属**账号/会话级风控**，与客户端类型、参数写法、sdtoken 握手都无关 | **立即停手**：当日不再打该 functionId 族（写读都别打）。次日**只观测页面自身请求**是否恢复，别主动发写请求。恢复后再用 `jd_interact_inpage.py check` 复测（页内真浏览器版）。**汇报口径**：「互动中心被京东风控封锁（账号/会话级，探测会加重），当日不做；京豆签到不受影响」——**不要**写"换日自动恢复"，也**不要**写"非账号问题" |
 | 京东互动中心 `code:3` 请先登录 | 浏览器京东登录态失效/被轮换 | 同签到：Thorium 重新登录 jd.com，下次运行自动读新 cookie |
 | 阿里云盘「今日已签」却记成首次 | `signInLogs` 的中文月份/字符串日解析失败会判不到今日 | 已修（`_cn2int` 支持「十月」/"12"）；核对用 `aliyun_signin.py status` |
 | 千问办公/Qoder CN 提示【失效】未找到凭证 | 桌面端未安装/未登录，或 `auth-v2.dat` / `auth.v1.dat` 缺失 | 安装并登录对应桌面端一次；两家的凭证文件都是 Chromium v10 信封，脚本实时解密、不写回客户端 |
@@ -450,7 +490,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | ★凭证同步 `[中断] 浏览器启动失败或 9222 不可达`（rc=2）、同轮**掘金也跟着失败** | 你自己的 Thorium 正开着但没带 `--remote-debugging-port`。Chromium 的 profile 是**单例**的：用同一个 `User Data` 再起 headless，新进程只会把启动请求移交给已运行实例后退出，9222 永远不监听（2026-10-15 实测第 0/8 步双双超时） | 已修复——`headless_browser.py` 检测到实例在跑就改用**独立临时 profile**（`%TEMP%\wb_th_*`）并从磁盘 Cookie 库注入登录态；收尾按临时 profile 精准回收，不碰你的窗口 |
 | `headless-shell` 模式下只有 2/3 同步成功，**办公小浣熊报 `raccoon_token` 缺失**（真实 profile 的 headless 也一样） | `raccoon_token` / `raccoon_refresh_token` 是**会话级 cookie**（Chromium 不落盘），磁盘 Cookie 库里根本没有，临时 profile 注入不到 | 非「用户没登录」。脚本已按结构性限制返回 rc=0 + `[说明]`。要真正同步小浣熊，必须**你自己用 `thorium.exe --remote-debugging-port=9222` 开着浏览器**再跑 `cookie_sync.py`；否则该家沿用 config 里的旧 token，到期才需处理 |
 | ★小浣熊明明属于上面那条结构性限制，`cookie_sync` 却报成 `浏览器缺少 raccoon_token（未登录？）` 并整步 **rc=3**（2026-10-16 编排器实测） | 豁免判定看 `mode.startswith("headless")`，而 `mode` 来自 `WB_BROWSER_HEADLESS_SHELL` 环境变量——**它只在拉起壳的那个进程里有**。编排器先拉起壳、`cookie_sync` 作为子进程只是「复用已在线的 9222」，env 丢了 → 被判成「用户自己的窗口」→ 会话级 cookie 缺失被当成未登录 | 已修：`headless_browser.is_headless_endpoint()` 直接问 CDP `/json/version`。★注意本机 Thorium 122 的 **`Browser` 字段写的是 `Chrome/122…`，只有 `User-Agent` 里带 `HeadlessChrome`**，只查 Browser 会永远判否。**判读口径：复用日志会写明「headless 无人值守壳」还是「用户自己开的窗口」，先按这句定性** |
-| MiniMax Code 报 `面板解析失败（响应形状不符硬约束）` | 真相通常是 **HTTP 401 `{"error":"invalid access token"}`**（token 过期），错误体没有 `base_resp`，被 `parse_panel` 的 asar 硬约束兜成"形状不符"，看不出该重抓凭证（2026-10-16 实测） | 已加 `_auth_err()`：401/403 与纯错误体会单独识别并打**【MiniMax 登录态失效】**+ 重抓指引（重登 MiniMax Code → 抓任意 `agent.minimax.cn` 请求的 Authorization 去掉 `Bearer ` 前缀写回 `minimax_config.json`）。真「形状不符」才是接口改版 |
+| MiniMax Code 报 `面板解析失败（响应形状不符硬约束）` | 真相通常是 **HTTP 401 `{"error":"invalid access token"}`**（token 过期），错误体没有 `base_resp`，被 `parse_panel` 的 asar 硬约束兜成"形状不符"，看不出该重抓凭证（2026-10-16 实测） | 已加 `_auth_err()`：401/403 与纯错误体会单独识别并打**【MiniMax 登录态失效】**。**★★2026-10-17 起指引已改**：过期根因是手工抓包那份 `access_token` 寿命仅约 1 小时、而桌面端会自行轮换，故脚本改成四级保活直读 `~/.minimax/auth/.../auth.json` + `refresh_token` 离线刷新（见 §MiniMax「账号状态保持」）。现在再报失效 = 四级全断，**唯一解法是让用户打开 MiniMax Code 重登一次**，别再叫人生成抓包指引。真「形状不符」才是接口改版 |
+| 京东 `login_expired` 但该不该叫用户重登，一眼判不准 | `thor/pin/_pst/unick` **全都在**cookie 里、`manual=false`、快照也是磁盘直读的新鲜的，服务端仍回 `code=3` —— 这是**会话被服务端整体作废**（改密/异地登录/超时都会这样），不是缺 cookie、也不是快照陈旧 | **鉴别诊断**（同一份 cookie，不吃 h5st）：`GET https://me-api.jd.com/user_new/info/GetJDUserInfoUnion`（Referer `https://home.jd.com/`）回 `{"msg":"not login","retcode":"1001"}` → 会话真死，只能重登 `passport.jd.com/new/login.aspx`；若它回正常用户信息而签到接口仍报错，才去查 h5st/风控参数而不是怀疑登录态 |
 | ★WorkBuddy 国际版报「网关拦截 HTTP 401（返回 HTML 不是业务 JSON）」，且明明刚在浏览器登录过 `www.workbuddy.ai` | **APISIX 网关按 User-Agent 拦**：同一个有效 session cookie，UA=`WorkBuddyAI/5.8.3` 或空 UA → 401；UA 换浏览器串 → 200 `code:0`（2026-10-16 A/B 实测）。旧文案直接指向「cookie 过期」，会让人白抓一次 | 已修：脚本默认发浏览器 UA（config `user_agent` 可覆盖），失败文案改成「先确认 UA、再怀疑 session」。**判读顺序：见 401+HTML 先想 UA，别先叫用户重登** |
 | ZCode 打 `billing/balance` 返 `400 {"code":3001,"msg":"parameter error"}` | 缺 **`X-Device-Mid`** 请求头（必填，不是可选装饰）。凭证本身是好的 | `device_mid` 就填同域 cookie `visitor_id`；`zcode_jwt` 取 `zcode.z.ai` 源 localStorage 的 `zcodejwttoken` 键 → 两者齐了即 `200 code:0`（可完全不抓包，只要浏览器登录过一次） |
 | 华为码道 `[失败] delivery HTTP 200 但空响应体` | 华为云网关/WAF 在**登录态失效**时就回 200 + 零字节（不是 JSON、也不是 401），旧版只说「HTTP 200」等于没法定位 | `fail_reason()` 已能区分「明确拒绝 / 业务码 401 / 空响应体 / HTML 跳登录页」。装了 CodeArts Agent 的正常机器**不会再走 cookie 链路**（脚本首行 `[鉴权]` 会写明用的哪条）；★2026-10-16 起回退链路的失败行会**直接带上读不到桌面端凭证的具体原因**（`_CRED["why"]`，如「客户端凭证已过期 expires_at=… → 打开 CodeArts Agent 让它续期」），**先按它让用户打开并登录 CodeArts Agent**，只有确实没有该客户端才提 F12 重抓 `PromptCenterService` cookie |
@@ -531,8 +572,9 @@ python scripts/jd_web_signin.py cookie                # 手动重提取浏览器
 python scripts/jd_web_signin.py auto                  # 京豆签到：查询→未签到则签到 + JSON 结果（定时任务用这个）
 python scripts/jd_web_signin.py status                # 只读：今日是否已签/连签天数
 python scripts/jd_web_signin.py sign                  # 强制签到（调试用）
-python scripts/jd_web_signin.py interact              # 互动中心：抽奖机会→抽奖→做任务赚机会→再抽（定时任务用这个）
-python scripts/jd_web_signin.py interact_status       # 只读：抽奖机会 + 任务完成情况
+python scripts/jd_web_signin.py interact              # ★已移出总控，仅封锁解除后复测用（互动中心：抽奖机会→抽奖→做任务赚机会→再抽）
+python scripts/jd_web_signin.py interact_status       # ★同上，只读复测：抽奖机会 + 任务完成情况
+python scripts/jd_interact_inpage.py check            # ★只读自检：在真浏览器(9222)页内看那组 functionId 是否已恢复 200
 
 # 阿里云盘（浏览器登录 www.aliyundrive.com，脚本读 Local Storage，无需 cookie）
 python scripts/aliyun_signin.py auto                   # 签到 + 判读今日记录（定时任务用这个）

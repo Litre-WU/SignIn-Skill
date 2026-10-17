@@ -1,5 +1,6 @@
 {
-  "//": "MiniMax Code 每日签到配置。抓包任意 agent.minimax.cn 请求：Authorization 头去掉 'Bearer ' 前缀填 access_token（实测前缀 mmoat_，60字符，非JWT）。timezone_id 为客户端 IANA 时区名，国内默认 Asia/Shanghai。",
-  "access_token": "<Bearer 值，抓包 agent.minimax.cn 请求的 Authorization 头去掉前缀>",
+  "//": "MiniMax Code 每日签到配置（2026-10-17 起已免抓包）。正常情况下本文件可留空：脚本优先直读桌面端 ~/.minimax/auth/prod/cn/mcode-public/auth.json 的活 token（客户端自己每约50分钟续期），两份都过期时用 refresh_token 打 account.minimax.cn/oauth2/token 离线刷新（结果落 minimax_session.json，不回写桌面端）。只有本机没装 MiniMax Code 时才需要下面的手工凭证。",
+  "access_token": "<兜底用：抓包任意 agent.minimax.cn 请求的 Authorization 头去掉 'Bearer '（前缀 mmoat_，60字符，非JWT，寿命仅约1小时）>",
+  "refresh_token": "<可选：同请求链上抓到的 mmort_ 开头 60 字符，用于离线续期>",
   "timezone_id": "Asia/Shanghai"
 }

@@ -33,11 +33,30 @@ minimax_credits.py — MiniMax Code 每日签到领积分
   days 恰好 7 条；day_no 为 1..7 无重复；status ∈ {1,2,3,4}；
   最多 1 条 Claimable、最多 1 条 is_today；scene ∈ {0..4}。
 
+★ 凭证保活（2026-10-17 改造，参考 Our Free Model `vendor/channel-pack/src/minimax-oauth.ts`）:
+  access_token 寿命**只有约 1 小时**（实测 expiresAtMs - 签发 ≈ 3600s），且 MiniMax Code
+  桌面端**自己会续期并轮换**它 —— 手工抓包写进 config 那份几天后必 401（2026-10-17 实报，
+  当时 auth.json 里的新 token 一打就通，config 那份已被轮换掉）。所以现在按四级取凭证：
+    1) 桌面端 `~/.minimax/auth/prod/cn/mcode-public/auth.json` 的 accessToken（未过期即用，
+       客户端在跑就是免费保活）；
+    2) 本地缓存 `minimax_session.json`（我们自己刷出来的那份，可能领先于客户端）；
+    3) 都过期 → `POST https://account.minimax.cn/oauth2/token` 用
+       grant_type=refresh_token 离线换新（refresh_token 前缀 mmort_，同样 60 字符）；
+    4) 兜底 config 里手工抓的 access_token。
+  ★**单次轮换**：同一 refresh_token 只试一次、绝不重试（防重放烧掉整条 token 家族），
+    `invalid_grant/expired/revoked` 视为终态直接提示重登；换新结果**只写 minimax_session.json，
+    不回写桌面端 auth.json**（客户端在跑会与我们争抢同一支 refresh）。
+  令牌响应硬校验照抄客户端 `parseMinimaxTokenGrant`：token_type 必须 Bearer、
+  scope 必须含 `agent.default`、expires_in 必须为正；★过期时间**只能取 expires_in**，
+  accessToken 不是 JWT（`mmoat_` 前缀、0 个点），别去解 payload。
+
 配置 minimax_config.json: {"access_token": "...", "timezone_id": "Asia/Shanghai"}
-  access_token: 抓包任意 agent.minimax.cn 请求的 Authorization 头（去掉 "Bearer "），
-                实测前缀 mmoat_、60 字符、非 JWT。
+  access_token 仅作兜底；正常情况无需配置，桌面端登录着即可自动续期。
+  （仍支持手工抓包：任意 agent.minimax.cn 请求的 Authorization 头去掉 "Bearer "。）
 
 用法:
+  python minimax_credits.py auth          # 只读：本次会用哪条凭证链路 + 有效期
+  python minimax_credits.py auth --force  # 强制离线刷一次（验证 refresh_token 是否还活着）
   python minimax_credits.py status        # 只读：七日面板 + 今日是否已领 + 余额
   python minimax_credits.py auto          # 每日：未领则领取（定时任务用这个）
   python minimax_credits.py probe         # 强制领取一次，打印服务端原文
@@ -45,18 +64,34 @@ minimax_credits.py — MiniMax Code 每日签到领积分
 """
 import json
 import os
+import re
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CFG_PATH = os.path.join(BASE_DIR, "minimax_config.json")
+SESSION_PATH = os.path.join(BASE_DIR, "minimax_session.json")
 HOST = "https://agent.minimax.cn"
 PREFIX = "/minimax-cloud/api/v1"
 TIMEOUT = 30
 DEFAULT_TZ = "Asia/Shanghai"
+
+# OAuth 常量（账号主机/client_id/scope/audience 全部来自桌面端 auth.json 与 asar contracts.js）
+ACCOUNT_HOST = "https://account.minimax.cn"
+TOKEN_PATH = "/oauth2/token"
+CLIENT_ID = "mcode-public"
+SCOPE = "agent.default"
+AUDIENCE = "agent-backend"
+# 距过期不足这么多毫秒就不再用它，直接走刷新
+EXPIRY_MARGIN_MS = 120_000
+CLIENT_AUTH_PATHS = [
+    os.path.join(os.path.expanduser("~"), ".minimax", "auth", "prod", "cn",
+                 CLIENT_ID, "auth.json"),
+]
 
 # 单日状态（asar SigninDayStatus）
 ST_UPCOMING, ST_CLAIMABLE, ST_CLAIMED, ST_DISABLED = 1, 2, 3, 4
@@ -83,18 +118,115 @@ def load_cfg():
     return cfg
 
 
-def _headers(cfg):
-    token = cfg.get("access_token", "")
-    if not token:
-        raise RuntimeError("配置缺少 access_token")
-    return {"Authorization": "Bearer %s" % token,
-            "Accept": "application/json",
-            "User-Agent": "MiniMaxCode/1.0"}
+def _now_ms():
+    return int(time.time() * 1000)
 
 
-def _request(url, cfg, method="GET", body=None):
+def _fmt_ms(ms):
+    if not ms:
+        return "未知"
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ms / 1000))
+
+
+def read_client_credential():
+    """读桌面端自己的凭据（客户端在跑就会自动续期）。文件由客户端并发写，读坏就跳过。"""
+    for path in CLIENT_AUTH_PATHS:
+        try:
+            with open(path, encoding="utf-8") as f:
+                records = (json.load(f) or {}).get("records") or {}
+        except Exception:
+            continue
+        recs = [r for r in records.values()
+                if isinstance(r, dict) and isinstance(r.get("accessToken"), str)
+                and r["accessToken"]]
+        if not recs:
+            continue
+        rec = next((r for r in recs if r.get("clientId") == CLIENT_ID), recs[0])
+        return {"access_token": rec["accessToken"],
+                "refresh_token": rec.get("refreshToken") or "",
+                "expires_at_ms": int(rec.get("expiresAtMs") or 0),
+                "src": "桌面端 auth.json"}
+    return None
+
+
+def load_session():
+    if not os.path.exists(SESSION_PATH):
+        return None
+    try:
+        with open(SESSION_PATH, encoding="utf-8") as f:
+            d = json.load(f)
+    except Exception:
+        return None
+    if isinstance(d, dict) and d.get("access_token"):
+        d.setdefault("refresh_token", "")
+        d.setdefault("expires_at_ms", 0)
+        d["src"] = "本地缓存 session"
+        return d
+    return None
+
+
+def save_session(cred):
+    try:
+        with open(SESSION_PATH, "w", encoding="utf-8") as f:
+            json.dump({k: cred.get(k) for k in
+                       ("access_token", "refresh_token", "expires_at_ms", "refreshed_at")},
+                      f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def _is_terminal_refresh_error(msg):
+    return bool(re.search(r"invalid_grant|expired|revoked", msg, re.I))
+
+
+def refresh_access_token(refresh_token):
+    """grant_type=refresh_token 离线换新。★同一支只试一次，绝不重试。"""
+    body = urllib.parse.urlencode({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": CLIENT_ID,
+        "scope": SCOPE,
+        "audience": AUDIENCE,
+    }).encode()
+    req = urllib.request.Request(ACCOUNT_HOST + TOKEN_PATH, data=body, method="POST",
+                                 headers={"Accept": "application/json",
+                                          "Content-Type": "application/x-www-form-urlencoded",
+                                          "User-Agent": "MiniMaxCode/1.0"})
+    try:
+        with urllib.request.urlopen(req, timeout=TIMEOUT, context=CTX) as resp:
+            payload = json.loads(resp.read().decode("utf-8", "replace"))
+    except urllib.error.HTTPError as e:
+        raw = e.read().decode("utf-8", "replace")
+        try:
+            detail = json.loads(raw).get("error") or raw[:80]
+        except Exception:
+            detail = raw[:80]
+        raise RuntimeError("HTTP %s %s" % (e.code, detail))
+    except Exception as e:
+        raise RuntimeError("%s: %s" % (type(e).__name__, e))
+    # 硬校验照抄客户端 parseMinimaxTokenGrant，不满足即视为无效凭据
+    if str(payload.get("token_type", "")).lower() != "bearer":
+        raise RuntimeError("令牌响应 token_type 非 Bearer")
+    if SCOPE not in str(payload.get("scope", "")).split():
+        raise RuntimeError("令牌响应 scope 不含 %s" % SCOPE)
+    token = payload.get("access_token")
+    expires_in = payload.get("expires_in")
+    if not isinstance(token, str) or not token:
+        raise RuntimeError("令牌响应缺少 access_token")
+    if not isinstance(expires_in, (int, float)) or expires_in <= 0:
+        raise RuntimeError("令牌响应缺少 expires_in（过期时间只能由它算，token 不是 JWT）")
+    return {"access_token": token,
+            "refresh_token": payload.get("refresh_token") or refresh_token,
+            "expires_at_ms": _now_ms() + int(expires_in * 1000),
+            "refreshed_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "src": "离线刷新 refresh_token"}
+
+
+def _request(url, token, method="GET", body=None):
     data = json.dumps(body).encode() if body is not None else None
-    h = _headers(cfg)
+    h = {"Authorization": "Bearer %s" % token,
+         "Accept": "application/json",
+         "User-Agent": "MiniMaxCode/1.0"}
     if data is not None:
         h["Content-Type"] = "application/json"
     req = urllib.request.Request(url, data=data, headers=h, method=method)
@@ -109,6 +241,82 @@ def _request(url, cfg, method="GET", body=None):
             return e.code, {"_raw": raw[:300]}
     except Exception as e:
         return 0, {"_error": "%s: %s" % (type(e).__name__, e)}
+
+
+class Session(object):
+    """凭证解析 + 401 时自动续期重试一次。"""
+
+    def __init__(self, cfg):
+        self.cfg = cfg
+        self.cred = None
+        self.notes = []
+        self._tried = set()
+        self._retried_401 = False
+
+    def resolve(self, force_refresh=False):
+        if self.cred:
+            return self.cred
+        client = read_client_credential()
+        cached = load_session()
+        if not force_refresh:
+            for c in (client, cached):
+                if c and c["expires_at_ms"] - _now_ms() > EXPIRY_MARGIN_MS:
+                    self.cred = c
+                    return c
+        # 缓存那份可能领先于客户端（客户端也在轮换），故优先
+        candidates = []
+        for src in (cached, client, self.cfg):
+            rt = src.get("refresh_token") if src else None
+            if rt and rt not in candidates:
+                candidates.append(rt)
+        for rt in candidates:
+            if rt in self._tried:
+                continue
+            self._tried.add(rt)
+            try:
+                fresh = refresh_access_token(rt)
+            except Exception as e:
+                msg = str(e)
+                self.notes.append("刷新失败(%s…): %s" % (rt[:6], msg))
+                if _is_terminal_refresh_error(msg):
+                    self.notes.append("refresh_token 已终态失效，同一支不再重试")
+                    break
+                continue
+            save_session(fresh)
+            self.cred = fresh
+            return fresh
+        if self.cfg.get("access_token") and not force_refresh:
+            self.cred = {"access_token": self.cfg["access_token"],
+                         "refresh_token": "", "expires_at_ms": 0, "src": "config 手工凭证"}
+            return self.cred
+        return None
+
+    def describe(self):
+        c = self.resolve()
+        if c is None:
+            return "[鉴权] 无可用凭证（桌面端 auth.json / session 缓存 / config 均不可用）"
+        # config 手工兜底那份没有 expires_at（抓包只拿到 token 本身），别算剩余分钟
+        if not c["expires_at_ms"]:
+            life = "到期未知"
+        else:
+            life = "到期=%s（剩 %.0f 分）" % (
+                _fmt_ms(c["expires_at_ms"]), (c["expires_at_ms"] - _now_ms()) / 60000.0)
+        return "[鉴权] 来源=%s %s%s" % (
+            c["src"], life, ("· " + "；".join(self.notes)) if self.notes else "")
+
+    def request(self, url, method="GET", body=None):
+        st, payload = self._once(url, method, body)
+        if st in (401, 403) and not self._retried_401:
+            self._retried_401 = True
+            self.cred = None
+            st, payload = self._once(url, method, body, force_refresh=True)
+        return st, payload
+
+    def _once(self, url, method, body, force_refresh=False):
+        cred = self.resolve(force_refresh)
+        if cred is None:
+            return 0, {"_error": "未取到 MiniMax 凭证（桌面端未登录且无可用的 refresh_token）"}
+        return _request(url, cred["access_token"], method, body)
 
 
 def _unwrap(payload):
@@ -137,11 +345,13 @@ def _check_base_resp(payload):
 def _auth_err(st, payload):
     """把登录态问题从「解析失败」里剥出来：401/403 或只有 error/message 的错误体，
     都是 token 掉了，不是响应形状变了。（2026-10-16 实测：过期 token 返 `{"error":"invalid access token"}`，
-    被 parse_panel 的硬约束兜成「面板解析失败」，用户看不出该重抓凭证。）"""
+    被 parse_panel 的硬约束兜成「面板解析失败」，用户看不出该重抓凭证。）
+    走到这里说明保活四级（桌面端 auth.json → 本地缓存 → 离线刷新 → config）已全部用尽。"""
     if isinstance(payload, dict) and st in (401, 403):
         msg = str(payload.get("error") or payload.get("message") or payload.get("_raw") or "")[:60]
-        return "【MiniMax 登录态失效】HTTP %s %s —— 重新登录 MiniMax Code 后抓任意 agent.minimax.cn 请求的 " \
-               "Authorization（去掉 Bearer 前缀）写回 minimax_config.json" % (st, msg)
+        return "【MiniMax 登录态失效】HTTP %s %s —— 凭证保活四级均已用尽，" \
+               "打开 MiniMax Code 重新登录一次即可（脚本随后直读 ~/.minimax/auth 的活凭证，" \
+               "无需再手工抓 Authorization）" % (st, msg)
     if isinstance(payload, dict) and not payload.get("base_resp") and (
             payload.get("error") or payload.get("_raw")):
         return "接口报错：HTTP %s %s" % (st, str(payload.get("error") or payload.get("_raw"))[:80])
@@ -223,10 +433,10 @@ def panel_to_status(panel):
 
 
 # ── 业务 ──
-def fetch_status(cfg):
+def fetch_status(ses):
     url = "%s%s/signin/status?%s" % (HOST, PREFIX,
-                                     urllib.parse.urlencode({"timezone_id": cfg["timezone_id"]}))
-    st, payload = _request(url, cfg)
+                                     urllib.parse.urlencode({"timezone_id": ses.cfg["timezone_id"]}))
+    st, payload = ses.request(url)
     if st == 0:
         return None, payload.get("_error", "network error")
     bad = _auth_err(st, payload)
@@ -241,10 +451,10 @@ def fetch_status(cfg):
     return panel, ""
 
 
-def claim(cfg):
+def claim(ses):
     url = "%s%s/signin/claim?%s" % (HOST, PREFIX,
-                                    urllib.parse.urlencode({"timezone_id": cfg["timezone_id"]}))
-    st, payload = _request(url, cfg, "POST", {})
+                                    urllib.parse.urlencode({"timezone_id": ses.cfg["timezone_id"]}))
+    st, payload = ses.request(url, "POST", {})
     if st == 0:
         return "failed", payload.get("_error", "network error")
     bad = _auth_err(st, payload)
@@ -263,8 +473,8 @@ def claim(cfg):
     return "claimed", {"credit": points if isinstance(points, (int, float)) else 0}
 
 
-def fetch_balance(cfg):
-    st, payload = _request("%s%s/credit/details" % (HOST, PREFIX), cfg)
+def fetch_balance(ses):
+    st, payload = ses.request("%s%s/credit/details" % (HOST, PREFIX))
     if st == 0:
         return None
     err = _check_base_resp(payload)
@@ -290,8 +500,9 @@ def fetch_balance(cfg):
 
 
 # ── 命令 ──
-def cmd_status(cfg):
-    panel, err = fetch_status(cfg)
+def cmd_status(ses):
+    print(ses.describe())
+    panel, err = fetch_status(ses)
     if panel is None:
         print("[status] 查询失败：%s" % err)
         return 1
@@ -303,13 +514,14 @@ def cmd_status(cfg):
         mark = " ←今天" if d["is_today"] else ""
         print("   Day%d: %s 分（额外 %s）[%s]%s" % (
             d["day_no"], d["points"], d["bonus_points"], tag, mark))
-    bal = fetch_balance(cfg)
+    bal = fetch_balance(ses)
     print("[balance] %s" % ("查询失败" if bal is None else "%s 积分" % bal))
     return 0
 
 
-def cmd_auto(cfg):
-    panel, err = fetch_status(cfg)
+def cmd_auto(ses):
+    print(ses.describe())
+    panel, err = fetch_status(ses)
     if panel is None:
         print("[auto] 状态查询失败，跳过（不盲领）：%s" % err)
         return 1
@@ -317,7 +529,7 @@ def cmd_auto(cfg):
     if st["today_checked_in"]:
         print("[auto] 今日已签到（is_today && status=3），幂等跳过")
         return 0
-    kind, info = claim(cfg)
+    kind, info = claim(ses)
     if kind == "claimed":
         print("[auto] 领取成功：+%s 积分" % info["credit"])
         return 0
@@ -328,38 +540,72 @@ def cmd_auto(cfg):
     return 1
 
 
-def cmd_probe(cfg):
-    panel, err = fetch_status(cfg)
+def cmd_probe(ses):
+    print(ses.describe())
+    panel, err = fetch_status(ses)
     print("[probe status] %s" % (json.dumps(panel, ensure_ascii=False) if panel else "FAIL: %s" % err))
-    kind, info = claim(cfg)
+    kind, info = claim(ses)
     print("[probe claim] kind=%s info=%s" % (kind, json.dumps(info, ensure_ascii=False)))
     return 0
 
 
+def cmd_auth(argv):
+    """凭证链路自检：走的是哪一级、refresh_token 还在不在、能否打通业务接口。★只报有无，不打印值。"""
+    ses = Session(load_cfg())
+    cred = ses.resolve(force_refresh="--force" in argv)
+    print(ses.describe())
+    client, cached = read_client_credential(), load_session()
+    print("[凭据源] 桌面端 auth.json=%s（refresh_token %s）· 本地缓存=%s（refresh_token %s）"
+          "· config 手工凭证=%s" % (
+              "有" if client else "无",
+              "有" if client and client.get("refresh_token") else "无",
+              "有" if cached else "无",
+              "有" if cached and cached.get("refresh_token") else "无",
+              "有" if ses.cfg.get("access_token") else "无"))
+    if cred is None:
+        print("[x] 未取得任何凭证 → 打开 MiniMax Code 登录一次即可恢复")
+        return 1
+    panel, err = fetch_status(ses)
+    if panel is None:
+        print("[验证] 接口不通：%s" % err)
+        return 1
+    st = panel_to_status(panel)
+    print("[验证] 接口通 · 今日已领=%s · 连续 %s 天 · 单日 %s 分" % (
+        st["today_checked_in"], st["streak_days"], st["daily_credit"]))
+    return 0
+
+
 def cmd_init(argv=None):
-    """写配置。支持：init --token <access_token> [--tz Asia/Shanghai]（reqable_hunt 非交互落地用）；
-    不带参数则进入交互式粘贴。"""
+    """写兜底配置。支持：init --token <access_token> [--refresh-token <rt>] [--tz Asia/Shanghai]；
+    不带参数则进入交互式粘贴。★正常情况下无需手工抓包，桌面端登录着即可自动续期。"""
     argv = argv or []
-    token = tz = ""
+    token = rt = tz = ""
     i = 0
     while i < len(argv):
         if argv[i] == "--token" and i + 1 < len(argv):
             token = argv[i + 1]; i += 2
+        elif argv[i] == "--refresh-token" and i + 1 < len(argv):
+            rt = argv[i + 1]; i += 2
         elif argv[i] == "--tz" and i + 1 < len(argv):
             tz = argv[i + 1]; i += 2
         else:
             i += 1
-    if not token:
+    if not token and not rt:
         print("粘贴 MiniMax 登录态（任一 agent.minimax.cn 请求的 Authorization 值，不含 'Bearer '）：")
         token = input("> ").strip()
     token = token.replace("Bearer ", "").strip()
-    if not token:
+    if not token and not rt:
         print("[init] 输入为空，放弃")
         return 1
+    cfg = {"timezone_id": tz or DEFAULT_TZ}
+    if token:
+        cfg["access_token"] = token
+    if rt:
+        cfg["refresh_token"] = rt
     with open(CFG_PATH, "w", encoding="utf-8") as f:
-        json.dump({"access_token": token, "timezone_id": tz or DEFAULT_TZ},
-                  f, ensure_ascii=False, indent=2)
-    print("[init] 已写入 %s（token=%s…）" % (CFG_PATH, token[:12]))
+        json.dump(cfg, f, ensure_ascii=False, indent=2)
+    print("[init] 已写入 %s（%s）" % (CFG_PATH,
+          "、".join([k for k in ("access_token", "refresh_token") if cfg.get(k)])))
     return 0
 
 
@@ -370,17 +616,16 @@ def main():
     cmd = sys.argv[1]
     if cmd == "init":
         return cmd_init(sys.argv[2:])
-    cfg = load_cfg()
-    if not cfg.get("access_token"):
-        print("[x] 未配置 minimax_config.json（需 access_token）。用法见文件头说明。")
-        return 1
+    if cmd == "auth":
+        return cmd_auth(sys.argv[2:])
+    ses = Session(load_cfg())
     if cmd == "status":
-        return cmd_status(cfg)
+        return cmd_status(ses)
     if cmd == "auto":
-        return cmd_auto(cfg)
+        return cmd_auto(ses)
     if cmd == "probe":
-        return cmd_probe(cfg)
-    print("[x] 未知命令: %s（status/auto/probe/init）" % cmd)
+        return cmd_probe(ses)
+    print("[x] 未知命令: %s（auth/status/auto/probe/init）" % cmd)
     return 1
 
 

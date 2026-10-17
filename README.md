@@ -13,13 +13,13 @@
 | 办公小浣熊（商汤） | `scripts/xhx_office_points.py` | 每日 300 积分确认（会话活跃自动入账，无手动签到接口） |
 | 讯飞Loomy（2 项） | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | Web 端积分 + 桌面端新手任务（总控合并为单一任务，链内串行） |
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
-| 京东京豆 + 互动中心 | `scripts/jd_web_signin.py` | 每日京豆签到 + 天天抽奖（做任务赚机会 → 转盘抽奖） |
+| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，连签有加成；浏览器 PC 登录态实时提取 cookie，无需抓包）。★互动中心天天抽奖已于 2026-10-17 移出每日流程：那组 functionId 是账号/会话级 HTTP 403 风控，且反复探测会让封锁从写扩大到读；`interact`/`interact_status` 子命令保留仅作封锁解除后的复测入口 |
 | 阿里系（3 项） | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | 阿里云盘签到（浏览器 Local Storage 实时取凭证）+ 千问办公每日 100 积分 + Qoder CN 每日 100 Credits（后两者桌面端 v10 信封解密取凭证，排末位规避 10:00 窗口边界），均无需抓包 |
 | 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
 | 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效）；★账号状态保持：桌面端临时 AK/SK（约 2h 寿命）过期时，脚本用 session 里的 refresh_token（约 28 天）+ PKCE codeVerifier + DPoP 私钥直接向 STS 离线换新凭证（方法参考 Our Free Model src/oauth.ts 逆向），**无需开着 CodeArts Agent**；刷出的新临时凭证本地缓存 2h 内复用，一天跑多次只消耗一次轮换 |
 | TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
 | LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
-| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3 |
+| MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3；★★账号状态保持（2026-10-17，参考 Our Free Model 的 minimax-oauth.ts）：access_token 寿命仅约 1 小时且桌面端会自行轮换，故按四级取凭证——直读 `~/.minimax/auth/prod/cn/mcode-public/auth.json` → 本地 session 缓存 → `grant_type=refresh_token` 向 account.minimax.cn 离线换新 → config 手工值兜底；★单次轮换同一支只试一次、不回写客户端文件；判读只看首行 `[鉴权] 来源=`，正常情况**免抓包** |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
 
 ## 安装
@@ -81,8 +81,8 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/loomy_points.py auto                  # Loomy（讯飞）
    python scripts/loomy_desktop_tasks.py run            # Loomy 桌面端
    python scripts/c189_signin.py auto                   # 天翼189云盘
-   python scripts/jd_web_signin.py auto                 # 京东京豆 + 互动中心
-   python scripts/jd_web_signin.py interact
+   python scripts/jd_web_signin.py auto                 # 京东京豆
+   python scripts/jd_web_signin.py cookie
    python scripts/aliyun_signin.py auto                 # 阿里云盘
    python scripts/mt_answer.py auto                     # 美团答题领现金
    python scripts/mt_answer.py probe
@@ -107,6 +107,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/lobsterai_credits.py status
    python scripts/lobsterai_credits.py init
    python scripts/minimax_credits.py auto               # MiniMax Code
+   python scripts/minimax_credits.py auth
    python scripts/minimax_credits.py status
    python scripts/minimax_credits.py init
    python scripts/workbuddy_intl_credits.py auto        # WorkBuddy 国际版
@@ -129,6 +130,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 - `_mishop_client.py` — 小米商城 mtop 客户端库：MiShop 设备头/服务Token/请求封装（xm_mijin.py 的依赖，凭证优先读 xm_mijin_config.json）
 - `hw_codearts_refresh.py` — 华为码道凭证离线续期库：refresh_token+PKCE+DPoP(ES256) 向 STS 换新临时 AK/SK（hw_codearts.py 的依赖，方法参考 Our Free Model src/oauth.ts 逆向）
 - `reqable_hunt.py` — Reqable 自动抓包入口：抓包前置体检 + 平台注册表 + 「MCP 记录 JSON → 凭证 → 写回 config」：doctor / scan / harvest [--apply] / restore-proxy（关 Reqable 后必跑，否则系统代理残留会让脚本成片假失效）
+- `jd_interact_inpage.py` — 京东互动中心页内复测工具：★不进每日流程：互动中心那组 functionId（assign_query / reward_center / assign_execute）是**账号/会话级 HTTP 403 风控**——urllib、headless、以及真浏览器里**页面自己**发的请求都会 403，且反复探测会让封锁从写扩大到读。本脚本只在你带 `--remote-debugging-port=9222` 启动的真浏览器里，用页面自己的 PSign/getJsToken/SHA256 复刻 requestColorEncrypto，供**封锁解除后复测**；check 只读自检、auto 领机会并抽。★会主动拒绝无头 9222（无头测出来的是假结论），永不自启浏览器、永不回收用户实例
 
 
 ## 安全声明

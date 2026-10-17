@@ -12,3 +12,6 @@ gr_cred.sh
 atrest.key
 checkin-rt.json
 hw_codearts_session.json
+# 2026-10-17 新增：凭证保活/风控握手的本地缓存（都是真凭据，永不进仓）
+minimax_session.json
+jd_sdtoken.json

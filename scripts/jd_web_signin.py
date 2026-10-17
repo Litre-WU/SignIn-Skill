@@ -472,6 +472,64 @@ def _throttle(gap=4.0):
     _LAST_CALL[0] = time.time()
 
 
+# ---------------------------------------------------------------- 风控 sdtoken 握手
+# ★2026-10-17 实测根因：pc_interact_assign_execute（POST）回 **HTTP 403 + 零字节**，
+#   响应头带 `X-Rp-Sdtoken: set;1800;<token>`，而同批 GET 全部正常 —— 这不是端点频率限流，
+#   是京东风控的 sdtoken 握手：网关下发 token，浏览器 JS 把它写成 cookie `sdtoken` 再重发。
+#   我们从浏览器 Cookie 库读到的那份里**没有 sdtoken**（它是 JS 运行时写入、寿命仅 1800s），
+#   于是"查询通、写入必 403"，极易被误判成【WAF 限流】而白等一天。
+_SD_FILE = os.path.join(BASE, "jd_sdtoken.json")
+
+
+def _sd_value():
+    """取仍在有效期内的 sdtoken（无则空串）。"""
+    try:
+        with open(_SD_FILE, encoding="utf-8") as f:
+            d = json.load(f)
+        if d.get("value") and d.get("expires_at", 0) > time.time():
+            return d["value"]
+    except Exception:
+        pass
+    return ""
+
+
+def _sd_capture(headers):
+    """从响应头取 `X-Rp-Sdtoken`（`set;<ttl秒>;<值>`）落盘。返回是否拿到了**新值**。"""
+    raw = ""
+    for k, v in (headers or {}).items():
+        if k.lower() == "x-rp-sdtoken":
+            raw = v
+            break
+    if not raw:
+        return False
+    parts = raw.split(";", 2)
+    if len(parts) < 3 or parts[0].strip().lower() != "set":
+        return False
+    try:
+        ttl = int(parts[1])
+    except ValueError:
+        return False
+    value = parts[2].strip()
+    if not value or value == _sd_value():
+        return False
+    try:
+        with open(_SD_FILE, "w", encoding="utf-8") as f:
+            json.dump({"ttl_sec": ttl, "expires_at": int(time.time()) + max(60, ttl - 30),
+                       "saved_at": time.strftime("%Y-%m-%d %H:%M:%S"), "value": value},
+                      f, ensure_ascii=False, indent=1)
+    except Exception:
+        return False
+    return True
+
+
+def _origin_of(url):
+    """URL → 规范 Origin（scheme://host[:port]，不带路径与尾斜杠）。取不出 scheme 就返回空。"""
+    sp = urllib.parse.urlsplit(url or "")
+    if not sp.scheme or not sp.netloc:
+        return ""
+    return "%s://%s" % (sp.scheme.lower(), sp.netloc)
+
+
 def _req(function_id, body, method, appid=None, sign_appid=None,
          referer=None, origin=None):
     cookies, stale = ensure_cookies()
@@ -489,46 +547,66 @@ def _req(function_id, body, method, appid=None, sign_appid=None,
     req_appid = appid or APPID
     sign_id = sign_appid or "73c2f"
     ref = referer or "https://bean.jd.com/myJingBean/list"
-    org = origin or "https://bean.jd.com"
+    # ★Origin 必须是规范的 scheme://host（不带路径/尾斜杠）。此前把 INTERACT_REFERER
+    #   "https://interact.jd.com/" 原样当 Origin 发出去，GET 不受影响、POST 被 WAF 判异常回 403
+    #   （2026-10-17 实测：同一批里查询 GET 全通、只有 assign_execute 这条 POST 403）。
+    org = _origin_of(origin or ref)
 
-    t, hs = node_sign(function_id, body, req_appid, sign_id)
-    params = {
-        "h5st": hs,
-        "uuid": uuid_,
-        "loginType": 3,
-        "appid": req_appid,
-        "clientVersion": CLIENT_VERSION,
-        "client": CLIENT,
-        "t": t,
-        "body": json.dumps(body, separators=(",", ":")),
-        "functionId": function_id,
-        "x-api-eid-token": eid,
-        "area": area,
-    }
-    cookie_line = "; ".join("%s=%s" % (k, v) for k, v in cookies.items())
+    for attempt in (1, 2):
+        # sdtoken 由页面 JS 运行时写入、寿命仅 1800s，浏览器 Cookie 库里根本没有 → 单独并入
+        ck = dict(cookies)
+        sd = _sd_value()
+        if sd:
+            ck["sdtoken"] = sd
 
-    if method == "get":
-        url = API + "?" + urllib.parse.urlencode(params)
-        data = None
-    else:
-        url = API
-        data = urllib.parse.urlencode(params).encode("utf-8")
+        # h5st 与时间戳绑定，重发必须重新签
+        t, hs = node_sign(function_id, body, req_appid, sign_id)
+        params = {
+            "h5st": hs,
+            "uuid": uuid_,
+            "loginType": 3,
+            "appid": req_appid,
+            "clientVersion": CLIENT_VERSION,
+            "client": CLIENT,
+            "t": t,
+            "body": json.dumps(body, separators=(",", ":")),
+            "functionId": function_id,
+            "x-api-eid-token": eid,
+            "area": area,
+        }
+        cookie_line = "; ".join("%s=%s" % (k, v) for k, v in ck.items())
 
-    req = urllib.request.Request(url, data=data, method=method.upper())
-    req.add_header("User-Agent", UA)
-    req.add_header("Cookie", cookie_line)
-    req.add_header("Referer", ref)
-    req.add_header("Origin", org)
-    req.add_header("Accept", "application/json, text/plain, */*")
-    req.add_header("Accept-Language", "zh-CN,zh;q=0.9")
-    if method == "post":
-        req.add_header("Content-Type", "application/x-www-form-urlencoded")
+        if method == "get":
+            url = API + "?" + urllib.parse.urlencode(params)
+            data = None
+        else:
+            url = API
+            data = urllib.parse.urlencode(params).encode("utf-8")
 
-    try:
-        with urllib.request.urlopen(req, timeout=30) as r:
-            return r.status, r.read().decode("utf-8", "replace")
-    except urllib.error.HTTPError as e:
-        return e.code, e.read().decode("utf-8", "replace")
+        req = urllib.request.Request(url, data=data, method=method.upper())
+        req.add_header("User-Agent", UA)
+        req.add_header("Cookie", cookie_line)
+        req.add_header("Referer", ref)
+        if org:
+            req.add_header("Origin", org)
+        req.add_header("Accept", "application/json, text/plain, */*")
+        req.add_header("Accept-Language", "zh-CN,zh;q=0.9")
+        if method == "post":
+            req.add_header("Content-Type", "application/x-www-form-urlencoded")
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as r:
+                st, hdr = r.status, dict(r.headers)
+                text = r.read().decode("utf-8", "replace")
+        except urllib.error.HTTPError as e:
+            st, hdr = e.code, dict(e.headers)
+            text = e.read().decode("utf-8", "replace")
+
+        # 网关下发了新 sdtoken → 这一次 403 是握手而非拒绝，带上 token 重发一次
+        if _sd_capture(hdr) and st == 403 and attempt == 1:
+            _throttle(2.0)
+            continue
+        return st, text
 
 
 def api(function_id, body, method):
@@ -768,7 +846,11 @@ def save_istate(st):
 
 
 def _is_waf_blocked(st):
-    """HTTP 403 空响应 = WAF 频率限制（京东按端点限流）。"""
+    """HTTP 403 + 零字节 = 风控拦截。
+    ★2026-10-17 更正判读口径：过去把 403 **一律**当"端点频率限流、换日自动恢复"，
+      害得互动中心天天白等。实测单条 POST 即 403 而同批 GET 全通，真因是**缺 sdtoken**
+      （见 `_sd_capture`），脚本已自动握手。所以现在再出 403 = 带上 sdtoken 仍被拒，
+      才是真限流/风控，此时**绝不重试轰炸**。"""
     return st == 403
 
 
@@ -834,7 +916,7 @@ def interact_do_task(task):
     }
     st, r = interact_api("pc_interact_assign_execute", body, "post")
     if _is_waf_blocked(st):
-        return {"code": "403", "msg": "WAF 限流", "gain": 0}
+        return {"code": "403", "msg": "403 风控拦截(已带sdtoken)", "gain": 0}
     code = _code_of(r)
     msg = (r or {}).get("errMessage") or ERR_MSG.get(code, "")
     gain = 0
@@ -876,7 +958,7 @@ def interact_draw(ea_id):
     st, r = interact_api("pc_interact_assign_execute",
                          {"rk": False, "eaId": ea_id, "type": 30}, "post")
     if _is_waf_blocked(st):
-        return {"code": "403", "msg": "WAF 限流", "items": []}
+        return {"code": "403", "msg": "403 风控拦截(已带sdtoken)", "items": []}
     code = _code_of(r)
     msg = (r or {}).get("errMessage") or ERR_MSG.get(code, "")
     items = parse_lottery_reward(r) if (r or {}).get("success") else []
