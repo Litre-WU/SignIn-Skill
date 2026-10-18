@@ -267,6 +267,23 @@ REGISTRY = [
         "note": "回退链路才需要 cookie 抓包；devcloud 鉴权键是会话级 cookie 不落盘，必须开抓包/CDP 才取到",
     },
     {
+        "id": "jd-farm", "name": "京东东东农场（微信小程序）",
+        "action": "微信打开京东小程序 → 进「东东农场」页刷新一下"
+                  "（小程序 webview 走系统代理可直抓，WeChatAppEx.exe；纯 cookie 无 h5st）",
+        "filter": {"type": "host", "hosts": ["api.m.jd.com"]},
+        "match": lambda rec: "api.m.jd.com" in (rec.get("url") or "")
+                             and "wq_skey" in hdr_joined(rec, "cookie"),
+        # 农场登录态 cookie 在小程序里是**多条**同名 cookie 头，必须全取拼接
+        "extract": lambda rec: {"cookie": hdr_joined(rec, "cookie")},
+        "land": lambda f: [PY, os.path.join(HERE, "jd_farm.py"), "init", f["cookie"]],
+        "verify": lambda rec: "wq_skey" in hdr_joined(rec, "cookie")
+                              and "sdtoken" in hdr_joined(rec, "cookie"),
+        "note": "★这是**微信小程序登录态**（pin/wq_uin/wq_skey/sdtoken + 3AB9D23F7A4B3CSS 即 eid），"
+                "与 PC 京豆 pt_key 系不同，有效期短，需在微信里保持京东小程序会话；"
+                "x-api-eid-token 由 jd_farm.py init 自动从 cookie 里的 3AB9D23F7A4B3CSS 提取。"
+                "领水滴的浏览类任务需真实点击不可纯 API 自动化，脚本只自动浇水+领免费水滴+签到",
+    },
+    {
         "id": "trae", "name": "TRAE（字节跳动）",
         "action": "打开 TRAE 桌面端并登录，进任意会发请求的页面（如签到/积分页）",
         "filter": {"type": "host", "hosts": ["api.trae.cn"]},

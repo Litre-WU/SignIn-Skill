@@ -54,6 +54,7 @@ import json
 import os
 import ssl
 import sys
+import time
 import urllib.error
 import urllib.request
 import uuid
@@ -87,6 +88,74 @@ def load_cfg():
             return json.load(f)
     except Exception:
         return {}
+
+
+# ── 保活：跟着桌面端登录走（★TRAE 本机没有 refresh_token，不能离线续期）──────
+# 实测：trae_config.json 里的 Cloud-IDE-JWT（14 天，签到用这份）与
+#   ~/.trae-cn/trae-jwt-token（7 天，IDE 自用）**iat 精确相同**——是同一次登录发的两种用途。
+#   所以用户在 TRAE 里重登一次，两份都会刷新；我们只需在 config 那份变旧时**自动跟上**，
+#   不必再叫人来抓包。搜过 ~/.trae-cn 与 %APPDATA%\Trae CN：无 refresh_token，
+#   OFM 侧虽有 ExchangeToken grant（body 需 RefreshToken+ClientID），本机拿不到 → 不做死代码。
+IDE_TOKEN_FILES = (os.path.join("~", ".trae-cn", "trae-jwt-token"),
+                   os.path.join("~", ".trae", "trae-jwt-token"))
+
+
+def _ide_tokens():
+    out = []
+    for p in IDE_TOKEN_FILES:
+        fp = os.path.expanduser(p)
+        if not os.path.exists(fp):
+            continue
+        try:
+            with open(fp, encoding="utf-8", errors="replace") as f:
+                t = f.read().strip()
+            if t.count(".") == 2:
+                out.append((t, fp))
+        except Exception:
+            pass
+    return out
+
+
+def refresh_cfg_from_client(cfg, verbose=True):
+    """config 的 JWT 已过期/临期，而桌面端文件里有**更新的一份** → 换用并回写 config。
+    ★回写我们自己的 config 是允许的（铁律 4 禁的是回写官方客户端的凭证文件）。"""
+    import credential_core as cc
+    cur = (cfg.get("access_token") or "").strip()
+    cur_exp = cc.expiry_ms(token=cur)
+    if cur_exp and cur_exp - time.time() * 1000 > cc.LEAD_S * 1000:
+        return cfg                                  # 现凭证还早，不动（零副作用）
+    best, best_exp, src = None, cur_exp or 0, None
+    for t, fp in _ide_tokens():
+        e = cc.expiry_ms(token=t)
+        if e and e > best_exp and t != cur:
+            best, best_exp, src = t, e, fp
+    if not best:
+        if cur_exp and cur_exp < time.time() * 1000:
+            print("[鉴权][TRAE] ★config 里的 JWT 已过期且桌面端没有更新的一份 → "
+                  "请在 TRAE 客户端重新登录一次，再跑 `init --token <Cloud-IDE-JWT> --uid <uid>`")
+        return cfg
+    cfg = dict(cfg)
+    cfg["access_token"] = best
+    try:
+        with open(CFG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print("[警告] 回写 trae_config.json 失败: %s" % e)
+    if verbose:
+        print("[保活][TRAE] config 的 JWT 已过期/临期，改用桌面端更新的这份（%s，到期 %s），已回写 config"
+              % (os.path.basename(src), cc.fmt_exp(best_exp)))
+    return cfg
+
+
+def auth_report(cfg):
+    """统一 `[鉴权]` 行（只做加法，原有失效措辞一律保留，日报判读靠它们）。"""
+    import credential_core as cc
+    tok = (cfg.get("access_token") or "").strip()
+    exp = cc.expiry_ms(token=tok)
+    cc.auth_line("TRAE", source="trae_config.json(Cloud-IDE-JWT 14天)",
+                 expires_at=exp, refreshable=False,
+                 note="本机无 refresh_token → 到期前在 TRAE 客户端重登一次，脚本会自动跟上这份新 token")
+    return exp
 
 
 # ── 设备身份确定性派生（逐行对齐 dsh trae.ts seededStream）──
@@ -366,17 +435,21 @@ def main():
     cmd = sys.argv[1]
     if cmd == "init":
         return cmd_init(sys.argv[2:])
-    cfg = load_cfg()
+    cfg = refresh_cfg_from_client(load_cfg())
     if not cfg.get("access_token"):
         print("[x] 未配置 trae_config.json（需 access_token + uid）。用法见文件头说明。")
         return 1
+    if cmd == "keepalive":
+        auth_report(cfg)
+        return 0
+    auth_report(cfg)
     if cmd == "status":
         return cmd_status(cfg)
     if cmd == "auto":
         return cmd_auto(cfg)
     if cmd == "probe":
         return cmd_probe(cfg)
-    print("[x] 未知命令: %s（status/auto/probe/init）" % cmd)
+    print("[x] 未知命令: %s（status/auto/probe/keepalive/init）" % cmd)
     return 1
 
 

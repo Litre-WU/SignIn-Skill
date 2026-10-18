@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 15 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 16 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -14,11 +14,12 @@
 | 讯飞Loomy（2 项） | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | Web 端积分 + 桌面端新手任务（总控合并为单一任务，链内串行） |
 | 天翼189云盘 | `scripts/c189_signin.py` | 每日签到领随机空间（实测 +26~50MB，容量前后差做入账判据） |
 | 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，连签有加成；浏览器 PC 登录态实时提取 cookie，无需抓包）。★互动中心天天抽奖已于 2026-10-17 移出每日流程：那组 functionId 是账号/会话级 HTTP 403 风控，且反复探测会让封锁从写扩大到读；`interact`/`interact_status` 子命令保留仅作封锁解除后的复测入口 |
+| 京东东东农场 | `scripts/jd_farm.py` | 自动浇水 + 领每日免费水滴（微信小程序 webview H5，`api.m.jd.com/client.action` `appid=signed_farm_mp`，**纯 cookie 无 h5st 签名**）。★自举浇水：`farm_water` 优先快速模式(waterType=2 单次耗 50ml)、普通(=1 耗 10ml)补到底，浇水还会触发回灌奖励(🎁水滴×300)。★领水滴的 16 项任务全是 BROWSE 浏览类，其完成依赖真实点击跳转停留 6s 生成的 `assignmentToken`（`uploadInteractiveAssignment`），**纯 API 无法自动化**——脚本不空打（每次 6002 会累积更宽频控），只如实标注需手动；浇水进度与签到/免费水滴可全自动。凭证是微信小程序登录态(pin/wq_skey/sdtoken+eid)，有效期短需在微信重开农场刷新；farm_home 偶发单接口频控 405 由脚本降级自举，频控软跳过退 0 不报失效 |
 | 阿里系（3 项） | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | 阿里云盘签到（浏览器 Local Storage 实时取凭证）+ 千问办公每日 100 积分 + Qoder CN 每日 100 Credits（后两者桌面端 v10 信封解密取凭证，排末位规避 10:00 窗口边界），均无需抓包 |
 | 小米系（2 项） | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | 米金签到+做任务 + 有品每日红包签到（总控合并为单一任务，链内串行） |
 | 华为码道 CodeArts Doer | `scripts/hw_codearts.py` | 每日签到领 1000 积分（免费额度；delivery 查 claimable → claim → confirm 三步，积分 30 天有效）；★账号状态保持：桌面端临时 AK/SK（约 2h 寿命）过期时，脚本用 session 里的 refresh_token（约 28 天）+ PKCE codeVerifier + DPoP 私钥直接向 STS 离线换新凭证（方法参考 Our Free Model src/oauth.ts 逆向），**无需开着 CodeArts Agent**；刷出的新临时凭证本地缓存 2h 内复用，一天跑多次只消耗一次轮换 |
-| TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效） |
-| LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分） |
+| TRAE（字节跳动） | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）；Cloud-IDE-JWT 鉴权 + 设备身份按 uid 确定性派生；★claim 幂等但响应不可区分 → status 预检 + 领取后回查积分；错误分类冷却（1005 套餐限/9074 繁忙/401 失效）；★★账号状态保持（2026-10-18）：本机 Trae 存储里**没有 refresh_token**，不能离线续期，但 config 那份 JWT(14 天，签到用) 与 `~/.trae-cn/trae-jwt-token`(7 天，IDE 自用) 是同一次登录发的两种用途——用户在客户端重登一次两份同时刷新，故 config 过期/临期时脚本会自动改用桌面端里更新的一份并回写自己的 config；临期解法是在 TRAE 里重新登录 |
+| LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分）；★★账号状态保持（2026-10-18，逆向 Our Free Model lobsterai-oauth）：**免抓包**直读桌面端 `%APPDATA%/LobsterAI/lobsterai.sqlite` 的 kv 表（auth_tokens/keyfrom.attribution.v1/auth_user/installation_uuid，★客户端在跑也能读：先 mode=ro&immutable=1 再退 mode=ro），accessToken 是 JWT(约 30 天)；过期/临期(<1h)时 POST /api/auth/refresh（★匿名头不带 Authorization，body 的 firstKeyfrom/latestKeyfrom 用**存储原值**不取当前时刻，响应可能不返新 refreshToken 必须沿用旧值，同一支只试一次、40100/40101 终态不重试），新凭据只写 lobsterai_live_cache.json 不回写 sqlite；`--auth auto|bearer|cookie`，Web cookie 仅作兜底且服务端只认 lobsterai_web_session 一个键 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3；★★账号状态保持（2026-10-17，参考 Our Free Model 的 minimax-oauth.ts）：access_token 寿命仅约 1 小时且桌面端会自行轮换，故按四级取凭证——直读 `~/.minimax/auth/prod/cn/mcode-public/auth.json` → 本地 session 缓存 → `grant_type=refresh_token` 向 account.minimax.cn 离线换新 → config 手工值兜底；★单次轮换同一支只试一次、不回写客户端文件；判读只看首行 `[鉴权] 来源=`，正常情况**免抓包** |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
 
@@ -60,6 +61,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    - `qwenwork_config.example.json` → `qwenwork_config.json` — 千问办公（阿里）
    - `qoder_config.example.json` → `qoder_config.json` — Qoder（阿里，双区）
    - `mt_union_config.example.json` → `mt_union_config.json` — 美团分销会场
+   - `jd_farm_config.example.json` → `jd_farm_config.json` — 京东东东农场
    - `lobsterai_config.example.json` → `lobsterai_config.json` — LobsterAI（有道）
    - `minimax_config.example.json` → `minimax_config.json` — MiniMax Code
    - `qoder_intl_config.example.json` → `qoder_intl_config.json` — Qoder（阿里，双区）
@@ -83,6 +85,10 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/c189_signin.py auto                   # 天翼189云盘
    python scripts/jd_web_signin.py auto                 # 京东京豆
    python scripts/jd_web_signin.py cookie
+   python scripts/jd_farm.py auto                       # 京东东东农场
+   python scripts/jd_farm.py status
+   python scripts/jd_farm.py water
+   python scripts/jd_farm.py init '<cookie>'
    python scripts/aliyun_signin.py auto                 # 阿里云盘
    python scripts/mt_answer.py auto                     # 美团答题领现金
    python scripts/mt_answer.py probe
@@ -100,11 +106,14 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/qoder_credits.py auto                 # Qoder（阿里，双区）
    python scripts/qoder_credits.py status
    python scripts/qoder_credits.py probe
+   python scripts/qoder_credits.py keepalive
    python scripts/trae_credits.py auto                  # TRAE（字节跳动）
    python scripts/trae_credits.py status
+   python scripts/trae_credits.py keepalive
    python scripts/trae_credits.py init
    python scripts/lobsterai_credits.py auto             # LobsterAI（有道）
    python scripts/lobsterai_credits.py status
+   python scripts/lobsterai_credits.py keepalive
    python scripts/lobsterai_credits.py init
    python scripts/minimax_credits.py auto               # MiniMax Code
    python scripts/minimax_credits.py auth
@@ -127,6 +136,8 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
 ## 辅助脚本 / 离线单测
 
 - `browser_cookies.py` — 浏览器 Cookie 提取库：绕 Chromium 独占锁读取并解密 cookie；跨平台 TEMP 整库缓存复用
+- `credential_core.py` — 账号保活共享层：全平台统一的保活纪律：到期时间只认服务端值(expires_in>expires_at>JWT exp，>1e12 判毫秒)、距过期不足 1h 才续期、同一支 refresh_token 按指纹 6h 内只试一次、终态码(401/403/40100/40101/200003/invalid_grant)判死不重试、新凭据只写自己的 *_live_cache.json 不回写官方客户端；另提供 v10/DPAPI 与 Electron sqlite kv 的通用只读读取、统一 `[鉴权]` 判读行、总控成功心跳记账（★只记 rc 与时间，不存输出原文以免凭证片段落盘）
+- `keepalive_status.py` — 全平台保活体检：23 个平台只读体检：根凭证到期(临期≤3天)+成功心跳(上次总控成功距今天数，>1.5 天标心跳陈旧)；派生短效凭证(AT 7200s/约 1h/临时 AK/SK 2h/sdtoken 1800s)不参与临期告警；已挂在 run_all 开头打 2~3 行预警
 - `_mishop_client.py` — 小米商城 mtop 客户端库：MiShop 设备头/服务Token/请求封装（xm_mijin.py 的依赖，凭证优先读 xm_mijin_config.json）
 - `hw_codearts_refresh.py` — 华为码道凭证离线续期库：refresh_token+PKCE+DPoP(ES256) 向 STS 换新临时 AK/SK（hw_codearts.py 的依赖，方法参考 Our Free Model src/oauth.ts 逆向）
 - `reqable_hunt.py` — Reqable 自动抓包入口：抓包前置体检 + 平台注册表 + 「MCP 记录 JSON → 凭证 → 写回 config」：doctor / scan / harvest [--apply] / restore-proxy（关 Reqable 后必跑，否则系统代理残留会让脚本成片假失效）

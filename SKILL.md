@@ -2,12 +2,12 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合24个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到（互动中心天天抽奖因京东账号/会话级 403 风控已移出总控，仅留复测入口）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分、MiniMax Code七日签到积分（免抓包，直读桌面端 auth.json 活凭证 + refresh_token 离线续期）、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合25个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到（互动中心天天抽奖因京东账号/会话级 403 风控已移出总控，仅留复测入口）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分（免抓包，直读桌面端 lobsterai.sqlite 的 JWT 凭证 + /api/auth/refresh 离线续期）、MiniMax Code七日签到积分（免抓包，直读桌面端 auth.json 活凭证 + refresh_token 离线续期）、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合二十四个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 15 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合二十五个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 16 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
@@ -23,7 +23,7 @@ description: 一站式签到/领券综合工具，整合24个已抓包验证的�
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py`<br>`scripts/hw_codearts_refresh.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；★★**账号状态保持（2026-10-16）**：临时 AK/SK（约 2h 寿命）过期时，`hw_codearts_refresh.py` 用 session 里的 `refresh_token`（约 28 天）+ PKCE codeVerifier + DPoP 私钥签 ES256 proof 直接向 STS 离线换新凭证（参考 Our Free Model `src/oauth.ts` 逆向）——**无需开着客户端**；刷出的新凭证缓存 2h 内复用（refresh_token 单次轮换，一天多跑只烧一次）；refresh_token 也终态失效才提示重开客户端登录。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
 | 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 |
-| 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分） | Python 标准库 |
+| 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分）。★★**2026-10-18 起首选「免抓包」链路**：直接只读桌面端 `%APPDATA%/LobsterAI/lobsterai.sqlite` 的 `kv` 表拿 `auth_tokens{accessToken,refreshToken}` + `keyfrom.attribution.v1` + `auth_user` + `installation_uuid`（accessToken 是 **JWT，exp 约 30 天**）；配 `/api/auth/refresh`（★匿名头、无 Authorization）离线续期，`REFRESH_LEAD=1h` 内才动手、同一支只试一次、终态码 `40100/40101/token rejected` 不重试、新凭证只写 `lobsterai_live_cache.json` **不回写 sqlite**。`--auth auto\|bearer\|cookie` | Python 标准库 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3`。★★**已免抓包（2026-10-17 保活改造）**：直读桌面端 `~/.minimax/auth/prod/cn/mcode-public/auth.json` 的活 token，过期再用 `refresh_token` 离线刷（见 §19） | Python 标准库 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（`zcode.z.ai`）。★查额度前**必须先补 `event/report` 激活**（app_launch + app_daily_active），否则 preview 空列表 → **稳定误报「今日已领」**；今日已领判据 = 可领 plan 数为 0。★`code 1003`=已领取（**属成功**）、`3007`=captcha 无效。★★**领取端点强制阿里云验证码**（不带/非法都 400/3007，且校验前置于 plan 校验）→ 无 captcha 时提示人工领取，不算失败 | Python 标准库 |
 | 京东互动中心（页内复测工具，**不进总控**） | `scripts/jd_interact_inpage.py` | ★互动中心那组 functionId（`assign_query`/`reward_center`/`assign_execute`）是**账号/会话级 403 风控**，urllib、headless、以及**真浏览器里页面自己发的请求**都会 403（详见 §14）。本工具用页面自己的 `PSign`/`getJsToken`/`SHA256` 复刻 `requestColorEncrypto`，**只用于封锁解除后复测**；`check` 只读自检、`auto` 领机会并抽。★会主动拒绝无头 9222（无头结论是假的），永不自启浏览器、永不回收用户实例 | Python 标准库 + websocket-client |
@@ -348,14 +348,37 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★错误冷却（对齐 trae-mate `cooldown.rs`）：`code 1005`=套餐不含签到（12h）、`code 9074`=签到人数过多（300s）、HTTP 401=会话失效（需重新登录）、429=软限流（60s）
 - 断线症状：401 → 重新登录 TRAE 桌面端重新抓包
 
-### 18) 有道 LobsterAI（2026-10-16 建成）
+### 18) 有道 LobsterAI（2026-10-16 建成，★★2026-10-18 起免抓包）
 
-协议来源同上（`lobsterai-credits.ts`，重构自 lobsterai2api/sigin.py）。电脑打开 lobsterai.youdao.com 登录后，抓任意一条 `lobsterai-server.youdao.com` 请求发我：`Authorization: Bearer <access_token>`（纯 Bearer，无签名）。
+协议来源同上（`lobsterai-credits.ts`，重构自 lobsterai2api/sigin.py）。★★**现在优先用桌面端本地凭证，不用抓包**：本机装了并登录过 LobsterAI 桌面客户端即可，脚本只读它的 `lobsterai.sqlite`。手工抓 `Authorization: Bearer <access_token>` 或 Web 门户 cookie 只剩兜底（`--auth bearer|cookie`）。
 
 - ★三步签到：①`GET /api/client-activities/slot?placement=desktop_sidebar&clientVersion=<动态版本号>&containerApiVersion=2&platform=win32`（槽位参数为固定值，照抄客户端，改了可能拿不到活动）→ ②`GET /api/client-activities/{activityCode}/context?configRevision=<N>`（`state.claimedToday` + `actions[]` 双重预检）→ ③`POST /api/client-activities/{activityCode}/actions/check_in`（body `{configRevision, idempotencyKey:uuid4, payload:{}}`，**客户端幂等键**）
-- 版本号从 `api-overmind.youdao.com/openapi/get/luna/hardware/lobsterai/prod/update` 动态取（★非统一信封：外层 code/msg，载荷在 `data.value.version`），失败兜底 `2026.9.4`
+- 版本号从 `api-overmind.youdao.com/openapi/get/luna/hardware/lobsterai/prod/update` 动态取（★非统一信封：外层 code/msg，载荷在 `data.value.version`），失败兜底 `2026.9.4`；★桌面端 sqlite 的 `client_sidebar_banner.schedule.desktop_sidebar.v2` 里也存了一份 `clientVersion`（本机实测 `2026.10.13`，比硬编码兜底新），优先用它
 - ★余额用 `GET /api/user/profile-summary`（`creditItems[]` + `totalCreditsRemaining`）——**不是** `/api/user/quota`（后者只显示 freeCreditsTotal=300，不含活动积分；实测 profile-summary 5297.72 vs quota 300）
-- 断线症状：`data 为空（accessToken 可能已失效）` → 重新抓包
+- 断线症状：`data 为空（accessToken 可能已失效）` / HTTP 401·403 → 走下面的续期，而不是叫用户抓包
+
+#### ★★账号状态保持（2026-10-18 改造，逆向 Our Free Model `lobsterai.ts` + `lobsterai-oauth` 的 refresh 调用点）
+
+**为什么必须改**：2026-10-18 实报【LobsterAI登录失效】根因是 `lobsterai_config.json` 里的 `lobsterai_web_session` 被服务端重建后变陈旧，而本平台**不在第 0 步 `cookie_sync` 名单里**（只有魔搭/小浣熊/Loomy 会每天自动轮换）——靠浏览器 cookie 就必然周期性烂掉。桌面端本地凭证则稳得多：实测 `accessToken` 是 **JWT**（payload `accountMode/exp/iat/sub/type/yid`），`exp` 距签发约 **30 天**。
+
+- 凭证来源（只读，客户端在跑也能读）：`%APPDATA%/LobsterAI/lobsterai.sqlite` → 表 `kv`
+  | kv key | 给的字段 |
+  |---|---|
+  | `auth_tokens` | `accessToken` / `refreshToken` |
+  | `keyfrom.attribution.v1` | `firstKeyfrom` / `latestKeyfrom`（★续期要带） |
+  | `auth_user` | `userId` / `yid` / `nickname`（手机号自动脱敏） |
+  | `installation_uuid` | `uuid` |
+  | `client_sidebar_banner.schedule.*` | `clientVersion` |
+  打开方式先 `mode=ro&immutable=1` 再回退 `mode=ro`（Electron userData 有两个写法 `LobsterAI`/`lobsterai`，逐个试）
+- 续期：`POST /api/auth/refresh`，★**匿名头**（只带 Accept/Content-Type/User-Agent，**不带 Authorization**）；body `{firstKeyfrom, latestKeyfrom, version, uuid, userId, refreshToken}`
+  - ★`latestKeyfrom` 用**存储的原值**、不取当前时刻——官方客户端的 RefreshToken 分支从不更新该字段，每次发的都是登录那一刻的值（照抄，别"优化"成 `Date.now()`）
+  - 响应 `{code:0,data:{accessToken, refreshToken, expiresIn, user{...}}}`；★`refreshToken` **可能不在响应里**，必须沿用旧值（覆盖成空串＝亲手废掉续期能力）
+  - 过期时间**只由 `expiresIn` 或新 JWT 的 `exp` 算**，解不出就当作未知（不刷、等真失效再说）
+  - 实测错误形态：伪造 refreshToken 打过去 → `HTTP 401 {"code":40100,"message":"登录已过期，请重新登录","data":null}`；`40100/40101/token rejected/refresh token was rejected` 与 401/403 一律当**终态**，★绝不重试（refresh_token 是轮换制，同一支只试一次）
+  - ★新凭证只写 `lobsterai_live_cache.json`，**绝不回写 sqlite**（客户端持有同一支，回写会争抢）
+- 触发时机：`REFRESH_LEAD=1h`——距过期不足 1 小时才刷（OFM 的 `REFRESH_LEAD_MS` 同语义；早期"每次跑都全量刷"会把轮换凭证烧光）。日常 `auto` 若被服务端判过期，会自动续一次再重试
+- 命令：`lobsterai_credits.py keepalive`（只报有效期与是否该刷）；`--auth cookie` 可强制回退旧链路
+- ⚠️ 未验证项：`/api/auth/refresh` 的**成功**分支本机还没真跑过（跑一次就会作废桌面端那支 refresh_token，而现凭证还剩 30 天，不值得拿用户的登录态做实验）。终态/错误分支已实测。真要启用时先看 `keepalive` 输出、首次手动盯结果
 
 ### 19) MiniMax Code（2026-10-16 建成）
 
@@ -410,6 +433,15 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 签到端点两区**同形**（`/sash/api/v1/me/campaigns` + `/{id}/claim`），头也同为 `cosy-clienttype: 10`（★缺任何 cosy-* 头，服务端返回 `{"showCampaign":false,"campaigns":[]}`，不报错但拿不到活动）
 - ★按「同企合并」原则已并入 `qoder_credits.py`，用 `--variant cn|intl|all`（默认 all 两区串行），**不新增任务**；国际版未安装时静默跳过（不是失效）
 - 国际版 user-data 目录给候选 `%APPDATA%/com.qoder.app.stable` 与 `%APPDATA%/Qoder`（本机未装国际版，未实测到真实目录名）；凭据解密链与 CN 完全相同（Chromium v10 信封）
+- ★★**领取逻辑 2026-10-18 按 OFM `qoder-credits.ts` 校正三处**（都属"静默漏领/误报失效"类）：
+  - **全领而非领一个**：官方对**所有** `actionType==CLAIM_BENEFIT && claimStatus==CLAIMABLE` 逐个 claim 再累加，**不看 `benefit.kind`**；旧版只领挑中的那一期，服务端若同挂多个可领活动就会漏
+  - **每日 10:00（UTC+8）换期**：`campaign_refreshed_today()` = 北京时间小时数 ≥10。10 点前即使列表里有 `CLAIMED`，那也是**昨天那轮** → 报「今日尚未刷新」而不是「今日已领」（`QODER_CAMPAIGN_REFRESH_HOUR_UTC8`）
+  - **「空列表」≠「失效」，要先鉴别账号未开通**：`campaigns` 里没有任何 `CLAIM_BENEFIT` **且** `GET /sash/api/v2/me/usage` 的 `qoderUsage.addOnQuota` 字段缺失 ⇒ 该账号**从没在 Qoder 侧开通过每日 100**，唯一解法是**用官方桌面客户端登录一次该账号**（照 OFM `isQoderNotActivated`）；旧版一律甩锅给"cosy-clienttype 头缺失"，会让人白折腾
+- #### ★账号状态保持（2026-10-18 移植 OFM `qoder-oauth.ts`，但★默认不动手）
+  `POST /api/v1/deviceToken/refresh`，body `{refresh_token, machine_id}`；响应键按别名取 `token|device_token|access_token` + `refresh_token` + `expires_at|expiresAt` + `refresh_token_expires_at` + `user_id` + `user_name`；★响应**可能不带新 refresh_token**（沿用旧的，不能覆盖成空）；HTTP 401/403 或 `invalid_grant/expired/revoked` 当**终态**、同一支只试一次；新凭证只写 `qoder_<variant>_live_cache.json`，★绝不回写 `auth.v1.dat`。
+  ⚠️ **两条本机实况让这条路暂时不能用**：① 桌面端 `auth.v1.dat` 只有 `schemaVersion/token/refreshToken/expiresAt/refreshTokenExpiresAt/user{}`，**没有 `machine_id`**，`%APPDATA%/Qoder CN/SharedClientCache/cache/machine_token.json` 也不存在 → 取不到就不猜、不发；② 客户端持有**同一支** refresh_token，我们刷一次就把它作废，它会在下一次自续期时被拒而被迫重登（★本机这个 Qoder 就是当前正在用的 IDE）。故 `keepalive` 只在**已过期/临期(<1h)** 且显式 `--force` 时才发请求。
+  现值实测：CN token 到期 2026-11-13（剩 ~26 天）、refreshToken 到期 2027-10-09 —— 离需要保活还远，先按"到期再说"处理。
+  另有 `Cosy-MachineToken` / `Cosy-MachineType` 两个头（OFM 从 `machine_token.json` 或 `%USERPROFILE%\.qoder-cn\.bin\umid-*\runtime-info.exe 3 --account-stdin` 现取）——本机 2026-10-15 二分实测**缺了照样 200**，属可选补齐，不作为前置条件。
 
 ### 22) ZCode（智谱，2026-10-16 建成）
 
@@ -448,8 +480,86 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - 京东京豆：每日京豆签到（`jd_web_signin.py auto`，+N 京豆/日 + 连签加成；浏览器 PC 登录态，脚本实时提取 cookie；幂等，已签跳过）。★互动中心天天抽奖**已移出总控**（账号/会话级 403 风控，见 §9b/§14），`interact` 子命令仅留作封锁解除后的复测入口
 - 阿里云盘：每日签到（`aliyun_signin.py auto`；凭证从浏览器 Local Storage 实时提取，无需 cookie/CDP；`sign_in_list` 兼做签到与查状态，幂等）
 - 千问办公：每日 100 积分核对（`qwenwork_credits.py auto`；凭证实时解密桌面端 `auth-v2.dat`，免抓包；免费版积分**服务端自动发放、当日有效**，脚本核对日包余额 + 尝试签到接口）
-- Qoder CN：每日 100 Credits 领取（`qoder_credits.py auto`；凭证实时解密桌面端 `auth.v1.dat`，免抓包；campaigns 动态发现 → claim，30 天有效；服务端幂等，重复提交 `replayed=true` 不重复发放；排在阿里系链末位，规避每日 10:00 窗口边界）
+- Qoder CN：每日 100 Credits 领取（`qoder_credits.py auto`；凭证实时解密桌面端 `auth.v1.dat`，免抓包；campaigns 动态发现 → **领取全部 CLAIMABLE 活动**并累加，30 天有效；服务端幂等，重复提交 `replayed=true` 不重复发放；★10:00 换期前跑会区分「今日已领 / 今日尚未刷新 / 账号未开通」三种情形，不再笼统报失效；`keepalive` 子命令报有效期，续期默认不动手；排在阿里系链末位，规避每日 10:00 窗口边界）
 - 华为码道：每日签到领 1000 积分（`hw_codearts.py auto`；`delivery` 判 `claimable` → `claim` → `confirm`；已领时 `claimable=false`，脚本跳过并打印积分桶余额）
+
+---
+
+## 二·五、账号保活统一层（2026-10-18 改造）
+
+保活失败的形态高度重复（凭证到期 → 401 → 叫用户重抓包），但原来 20 多个脚本各自实现解密、
+过期计算、终态判断、输出措辞，于是同一支单次轮换的 refresh_token 会被两处同刷互相作废、
+临期预警全靠猜、401 与业务码非 0 混成同一种"失效"。现在**判据只有一份出处**：
+
+### `scripts/credential_core.py`（共享纪律层，不含平台知识）
+
+| 函数 | 干什么 | 为什么必须有 |
+|---|---|---|
+| `expiry_ms(expires_in=, expires_at=, token=)` | ★**唯一**的到期时间入口：相对值 > 绝对值 > JWT exp > None | 旧代码各处按"感觉"猜寿命，临期预警全是噪声；Qoder 的尺度判据（`>1e12` 当毫秒，否则当秒）也在这里 |
+| `needs_refresh(exp, lead=3600s)` | 距过期不足 1h 才续期；**解不出到期一律返回 False** | OFM 早期"每 30 分钟全量刷"会把轮换凭证烧光（其 issue !IKIRTT） |
+| `refresh_allowed / mark_refresh_attempt` | 按 **RT 指纹**记账，同支 6h 内拒发第二次 | 两个脚本同天各刷一次会互相把对方的 refresh_token 作废——这是跨进程问题，单个脚本自己防不住 |
+| `is_terminal(status, text)` | 401/403 + 各平台终态码（`40100/40101`、`200003`、`invalid_grant/expired/revoked`…）判死 | 终态继续重试只会彻底烧掉 token 家族；京东那类风控还会把封锁越打越宽 |
+| `RefreshTokenExpired` | 终态异常类，★`name` 固定这个字符串 | 调度按**名字**识别终态，改名会静默退化成无限重试 |
+| `record_ok / days_since_ok_any` | 成功心跳（总控统一记，不在各脚本埋点） | 美团/利宝/小米/南航的凭证**没有到期字段**，心跳是失效前最早可观测的信号 |
+| `read_v10_json / read_sqlite_kv / find_first` | 官方客户端存储的通用读法（DPAPI+v10 信封 / Electron sqlite kv） | 原来 5 处各写一份解密，任一处改法会让其余几处静默退化 |
+| `auth_line(...)` | 统一 `[鉴权][平台] 来源/到期/剩余/续期能力` 首行 | 判读口径统一。**只做加法**：原有 `【XX失效】`/`login_expired` 措辞全部保留，日报判读靠它们 |
+
+### `scripts/keepalive_status.py`（全平台体检，★已挂在总控最前面）
+
+```
+python scripts/keepalive_status.py           # 单独跑全表
+python scripts/keepalive_status.py --warn    # 只看需要动作的
+```
+体检**只读本地文件/config/sqlite，不发业务请求、不启动浏览器**，异常也只降级成一行提示——
+它挂在编排开始前但**不属于任务图**：不占 `max_workers`、不进逐任务耗时表、不影响总控退出码。
+退出码 0 无需动作 / 2 需盯 / 1 会直接领不到。
+
+表里两列是关键：
+
+- **根凭证到期**：只有"坏了必须用户重登"那一层参与临期(≤3天)/过期判定。
+  派生短效凭证（阿里云盘 AT 7200s、MiniMax AT 约 1h、华为临时 AK/SK 约 2h、京东 sdtoken 1800s、
+  天翼 sessionKey）**寿命短是设计如此**，按 3 天阈值报它们等于天天误报——已按 `root=False` 排除。
+- **心跳天**：该平台在总控里上次成功的距今天数；>1.5 天即标「心跳陈旧」。
+  这是"服务端不给到期时间"那批平台（美团/利宝/小米/南航/掘金/农场）唯一的衰减信号。
+
+★判读规则：**「无到期值」「未安装」「自动轮换」都不等于失效**，别写进【XX失效】；
+只有「已过期 / 缺凭证 / 读取异常 / 心跳陈旧 / 临期」才是要处理项。
+
+### 第 0 步凭证同步：从 3 家扩到 5 家
+
+`cookie_sync.py` 名单新增 **天翼189（SSON，`mode=value` 传裸值）** 与 **WorkBuddy 国际版
+（`session`/`KEYCLOAK_SESSION`，`mode=cookie_flag`）**；两家的键名是从本机现有 config 实解出来的。
+
+★★**同步的第一铁律：不能让凭证越同步越坏**（2026-10-18 实踩——临时 profile 只注入到 90 个
+cookie，写回的 WorkBuddy 国际版 cookie 校验 401，而旧那份本来是可用的：它返回过 `active=false`
+这种业务应答。事故催生下面两条）：
+
+1. **先验证再算成功**：所有平台的 `init` 必须在写完后真发一次只读请求。`workbuddy_intl_credits.py
+   init` 原来只打「已写入」就返回 0，现改为打 `[ok] 凭证已写入并校验通过` / `[x] …校验失败`——
+   cookie_sync 靠这行判成败。**写盘成功 ≠ 凭证有效**，否则日报会把没验证过的凭证报成 ✅。
+2. **失败即回滚**：PLATFORMS 每项带 `cfg`（配置文件名），sync 前快照、init 判失败就恢复原文件。
+3. **无人值守壳的覆盖度问题不算失败**：headless（真实 profile 或临时壳）拿到的 cookie 是天然
+   不完整的子集（会话级必丢；临时壳实测只有 849 里的 90 个），所以 headless 模式下的差异一律
+   退 0 + 打「沿用各平台 config 旧凭证」说明。**只有用户自己带 9222 的浏览器里缺键才叫真问题。**
+4. **可选平台**（`optional: True`，如 WorkBuddy 国际版＝独立账号体系）未命中不计失败。
+
+★新增平台根凭证若是浏览器 cookie，必须**同时**做两件事：进 `cookie_sync.PLATFORMS` **且**在
+`run_all.py` 的该任务上列 `deps:["0-sync"]`。只做一半等于没做——只进名单会并发读写（一边写 config
+一边读 config 签到），只列 deps 则同步根本不覆盖它。
+
+### 各平台保活现状（该谁做什么）
+
+| 类别 | 平台 | 机制 |
+|---|---|---|
+| **可离线续期（有 RT，已接线）** | MiniMax、华为码道、办公小浣熊、阿里云盘、天翼189、有道LobsterAI | lead 1h + 单次轮换守卫 + 终态不重试 + 新值只写自己的 cache |
+| **靠第 0 步浏览器轮换** | 魔搭、Loomy(web)、天翼189 SSON、WorkBuddy国际版 | cookie_sync 每天重取（先验证后落盘、失败回滚） |
+| **靠桌面端自续（每次实读）** | Qoder CN/国际版、千问办公、Loomy桌面、TRAE(旁证) | 用户在客户端里登录即刷新；★Qoder 离线续期要 `machine_id`，本机拿不到 → 不做死代码 |
+| **只能重登/重抓（无 grant）** | 利宝、美团四件套、南航小程序 sessionId、东东农场、小米系、ZCode、TRAE、掘金(依赖 9222 登录态) | 体检里标「无到期值」+ 心跳观察；★别写【失效】除非当天真报错 |
+| **结构性半自动** | 南航抽奖（sessionId 绑小程序、寿命数小时） | 每天提醒有几次机会待人工抽 |
+
+★**不要主动做的三件事**（都是实测换来的）：① 在桌面端在跑时替它刷 refresh_token（会把它踢下线）；
+② 打京东互动中心那组 functionId（账号/会话级 403，探测会扩大封锁）；③ 用 headless 临时壳做需要
+bdms 滑块的掘金签到（必拦，脚本已改快速失败）。
 
 ---
 
@@ -458,6 +568,10 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 现象 | 原因 | 处理 |
 |---|---|---|
 | 南航 `invalid session` / 业务失败 | 凭证过期 | 南航：先跑 `csair_signin.py doctor` 探活；sessionId 只能由小程序内 `wx.login` 换取（无服务端刷新接口），抓 `/mini/api/login/login` **响应体**发我用 `refresh` 更新 |
+| ★`cookie_sync` 报某家 ❌（如「浏览器缺少 SSON（未登录？）」「浏览器缺少 session」）**但该平台当天签到正常** | 无人值守壳拿到的 cookie 是**天然不完整的子集**：会话级必然没有；临时 profile 实测只注入到 90 个（用户真浏览器有 849 个）。这是**覆盖度问题，不是用户没登录** | 脚本已按此把 headless 模式的差异退 rc=0 并打 `[说明]`。汇总照抄说明行，**别报【凭证同步失败】**。要全量同步只能让用户带 `thorium.exe --remote-debugging-port=9222` 开自己的浏览器再跑 |
+| ★同步跑完后某平台**从正常变成 401/失效**（2026-10-18 真实事故：WorkBuddy 国际版旧 cookie 本可用、返回过 `active=false`，被临时壳的 90 个 cookie 覆盖后 401） | 早期 `cookie_sync` 是"先写后判"，坏凭证会顶掉好凭证；且部分平台 `init` 只打「已写入」不验证，成功判据等于没验 | 已修两条：①PLATFORMS 每项带 `cfg`，**init 判失败立即回滚原 config**；②所有平台 `init` 必须真发一次只读校验后才打 `[ok] …校验通过`（`workbuddy_intl_credits.py` 本次补上）。已被清掉的凭证无法找回——把 config 里 cookie 清空即可回到 `[skip] 未配置 退0` 的确定状态，等用户在对应域登录后由第 0 步重新同步 |
+| `keepalive_status.py` 里某平台标「无到期值」 | 服务端**从来不给**到期时间（美团 wm_logintoken、利宝 authorization、小米 serviceToken、南航 sessionId、ZCode JWT 无 exp 等）——不是坏了 | 看「心跳天」列（上次总控成功距今）；>1.5 天标「心跳陈旧」才是真信号。★「无到期值」「未安装」「自动轮换」一律**不写进【XX失效】** |
+| 体检把阿里云盘/MiniMax 标成「临期 0.0 天」 | 报的是**派生短效凭证**（AT 7200s / AT 约 1h），寿命短是设计如此；根凭证其实是 RT 或浏览器 Local Storage | 已按 `root=False` 排除告警。只有"坏了必须用户重登"那一层才参与临期判定（TRAE 7 天 JWT、Qoder 30 天、LobsterAI 30 天、华为 rt_exp_ms、小浣熊 token_exp） |
 | 美团 `mtgsig` 失败/被风控 | 抓包设备版本与脚本不符、Node 未装 | 设 `MT_NODE`；把抓包整条发我适配 |
 | 美团 H5 页"未登录" | wm_logintoken 过期 | 重抓一条 `listActivityCoupon` 发我，H5 脚本与主领券共用同一 token |
 | 美团限时抢总提示"活动太火爆" | 该场次库存=0（秒杀券库存个位数，被别人抢了）或当日已领（subCode 9017） | 属正常，脚本每日新场次自动重试；想抢到需在场次开始（10:00/11:00/17:00）第一时间跑 |
@@ -470,7 +584,11 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 南航抽奖**明明抽中了却被脚本判成失败** | 中奖码是 **`W200`**，响应为**平铺字段**（`giftName`/`mileage`/`winnerId`/`giftId`），**没有 `data` 包装**；旧版成功码表只有 `W0000/0000/0/200` 且只读 `data` | 已修：`W200` 入成功码表并按平铺字段取 `giftName`；补 **`W45005 抽奖次数已用完`** 为**终局码**（记账不再空跑），`WAF/W00000/W403` 才留待重试 |
 | 南航 `awardList` 有 N 条 `lotteryAward/received`，脚本就天天报「有 N 个机会」 | 那只是**发放台账**；抽奖次数记在抽奖池自己身上（按 `randomId`，本例 `0fLJsD`）。实证：两条至今 `received`，而 `draw` 已回 `W45005 次数已用完` | 真判据是 **draw 的返回码**，不是台账条数。另：奖池实测**几乎只有 1 里程、偶尔 2 里程**（`getWinnerList` 的 `luckWinnerList` 为空），期望 ≈1~2 里程/次——值不值得为它人工过滑块，自行权衡 |
 | 小程序类 `sessionId` 想免手工获取 | PC 微信小程序的流量在系统代理开着时会全进 Reqable | 用 Reqable MCP：`capture_live_filter` 关键词 `mini/api/login/login` → `capture_live_get_by_id` 取**响应体** → 直接喂 `csair_signin.py refresh '<JSON>'`（2026-10-16 实测一次通过，签到链路随之恢复） |
+| ★有道 LobsterAI 报 `[auto] 领取失败：请先登录`（服务端原文，不是脚本自创措辞） | ★**2026-10-18 起不该再默认发生**：脚本首选桌面端本地 Bearer（读 `lobsterai.sqlite` 里的 JWT，约 30 天有效）。出现这句说明走的是**陈旧 cookie**——`lobsterai_web_session` 被服务端重建过，而本平台**不在第 0 步 `cookie_sync` 名单里**（只有魔搭/小浣熊/Loomy 每天自动轮换），手工 cookie 不会自己更新 | 依次判：①看 `status` 首行 `[鉴权]` 走的是哪条链路——装了桌面端就该显示「桌面端 Bearer（免抓包）」；②只有桌面端确实没装/没登录才回退 cookie，重取用 `browser_cookies.extract_full(['youdao.com','163.com','netease.com','lobsterai'], tag='lobster')` 磁盘只读直开（浏览器开着也能读）→ `init --cookie '<拼好的 line>'`；③`keepalive` 看 JWT 到期。★关键口径：库里只捞到 `lobsterai_web_session`（host_key 是 `lobsterai-server.youdao.com`）、**`NTES_YD_SESS`/`DICT_SESS` 根本不在盘上，服务端照样认**——别把这两个键当硬前提去判"没登录" |
+| LobsterAI 重建凭证后 `auto` 直接说「今日已签到，幂等跳过」 | Web 门户**登录本身**就触发「每日登录奖励 100」（同魔搭 +250 的会话副作用），用户在浏览器里登一次已经入账了；`status` 里 `claimedToday=True` + 余额出现一笔新的「每日登录奖励 100」即实证 | 算正常，不是漏领。核对用 `lobsterai_credits.py status`（看 `claimedToday`、各笔奖励的 `到期` 时间反推发放日） |
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
+| ★美团分销会场 grant 行报「已发放 17 张 ¥25000」，面额大得离谱 | `mt_union_coupon.py` 会场分支直接 sum 响应里的 `couponValue`（**单位是分**）后原样打印，而同一脚本的分销中心跨券墙分支是**元**口径 → 汇总里两行不能直接相加 | 判读口径：**会场行 ÷100**（¥25000 = ¥250.0），跨券墙行按原值；已在 2026-10-18 汇总中按此换算。要改就把 `count_granted` 的 value 统一 ÷100 |
+| ★美团福利社报「底部 tab 已无福利社(fls) gundam 入口…入口已下线」 | 2026-10-12~10-15 连续四天如此，当时写成"服务端改版"；**2026-10-18 实测同一账号同一脚本自动发现 `gid=4TtwZI`、跨券墙 8 grabs + 天降 1 falls 正常入账** → 该 tab 下发是**灰度/周期性**的，不是永久下线 | 别把"入口已下线"当终局结论写进汇总；按当日实跑结果判，抓到 gid 就正常计入，抓不到就写"本次入口未下发，跳过" |
 | ★美团惠省红包墙「今天的活动没领」 | 两种可能：① **其实已领完**（跑 `mt_api_coupon.py probe` 看「可领 N / 已在卡包 M」，可领=0 即领完，曾在 00:58 手动跑过并标记过当日）；② 旧版**日级幂等**把当天后出现的新批次挡掉了（红包墙当天会刷新，实测墙总额 ¥222→¥412） | 已修复为 rightCode 级幂等（2026-10-12），只领新出现的券；仍异常就跑 `probe` 对比「可领数」与 `mt_claim_state.json` 里当日 `granted_rc` 数量 |
 | 美团惠省红包墙 probe 显示「可领 0 / 已在卡包 38」但记得没领过 | 之前某次运行（含手动测试）已领，`couponViewId` 有值即代表在卡包 | 正常；想核对去美团小程序「我的→红包/卡包」按日期看 |
 | 美团 `querySharePopWindow` 返回 `data:null` | 无分享弹窗、无待领分享奖励 | 正常空操作；哪天真返回非 null data 再补分享任务实现 |
@@ -499,7 +617,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 | 华为码道 claim/confirm `HTTP 400 HDN.1000 "channel : unknown exception"` | 服务端按 DTO 逐字段校验：`claim` 的 body **要** `channel`，`confirm` 的 body **不能带** `channel`；反过来给 POST 再挂 `?channel=` query 也会 400 | 已按客户端两处实现校准：GET 只放 query、POST 只放 body 且仅 claim 带 channel |
 | 华为码道签名报 `401 APIG.0301 header x-sdk-date not signed` | `X-Sdk-Date` 没进参与签名的 header 集合（signer.js 是先写 header 再算 SignedHeaders） | 已修复；另注意 canonicalURI 末尾必须补 `/` |
 | 华为码道「今日不可领」`claimable=false` 且 status 非已领 | 权益刷新周期**不是自然日**（实测 confirm 显示 claimedAt=09-27 后长期不可领） | 业务态不是失效，脚本已返回 0 并标注【今日不可领】，别再当日误报异常；`probe` 可看服务端 40001 原文 |
-| 京东明明重新登录了，仍持续 `login_expired`（曾连挡两天） | ① `manual=true` 配置一旦写入就**永久短路**整条提取链（TEMP 缓存只在直读成功时刷新，而直读被短路永不执行）；② Thorium 在跑时 `Cookies` 库是**独占锁**，任何用户态拷贝都失败（`CreateFileW` err=32、`esentutl /y` `-1032 JET_errFileAccessDenied`（`/v` 还会挂死）、`robocopy /B`、`cmd copy`、Python `open` 实测全不行）→ 静默退回**陈旧 TEMP 快照**；③ 旧版 esentutl 静默失败还等满 120s | 已修（2026-10-15）：`manual` 加 **6h TTL**；取源按新鲜度排序 **CDP 9222 → 磁盘直读 → TEMP 快照**；esentutl 超时降到 20s 并**打印失败原文**；用陈旧快照时 `login_expired` 自带"×分钟前快照，别误判未登录"提示。**真正的解法只有两条**：关掉 Thorium 再跑，或用 `thorium.exe --remote-debugging-port=9222` 启动。核对：`jd_web_signin.py cookie` 会打印用的是哪一级 |
+| 京东明明重新登录了，仍持续 `login_expired`（曾连挡两天） | ① `manual=true` 配置一旦写入就**永久短路**整条提取链（TEMP 缓存只在直读成功时刷新，而直读被短路永不执行）；② ~~Thorium 在跑时读不出库~~ **此因已于 2026-10-17/18 两次证伪**：脚本走的 `CreateFileW` **只读**直开 + 自解析 SQLite 在浏览器运行中照样成功（2026-10-18 实测提出 42 个 cookie、`flash` 已是重登后的新值）。真正会失败的只有"整库复制"类手段（esentutl/robocopy/copy/open）；③ 旧版 esentutl 静默失败还等满 120s | 已修（2026-10-15）：`manual` 加 **6h TTL**；取源按新鲜度排序；esentutl 超时降到 20s 并打印原文；用陈旧快照时 `login_expired` 自带"N 分钟前的磁盘快照"提示。**判读顺序**：先跑 `jd_web_signin.py cookie` 看它报的哪一级源＋条数有无变化 → 直读成功且是新鲜值仍 `code=3`，才是**会话被服务端整体作废**（见上条鉴别诊断），此时唯一解法是真重登；只有源是 TEMP 陈旧快照时才需要关浏览器或加 9222。**别一上来就叫用户关浏览器** |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。
 
@@ -595,13 +713,17 @@ python scripts/hw_codearts.py status                    # 只读：活动状态 
 python scripts/hw_codearts.py probe                     # 不可领时硬提交一次，拿到服务端原文定位刷新时间
 
 # Qoder CN（安装并登录桌面端 Qoder CN，脚本解密 auth.v1.dat，免抓包）
-python scripts/qoder_credits.py auto                    # campaigns 动态发现 → 领取每日 100 Credits（定时任务用这个）
+python scripts/qoder_credits.py auto                    # campaigns 动态发现 → 领取**全部** CLAIMABLE 活动（定时任务用这个）
 python scripts/qoder_credits.py status                  # 只读：活动清单 + 今日是否已领
 python scripts/qoder_credits.py probe                   # 强制领取一次（验证服务端幂等 replayed）
+python scripts/qoder_credits.py keepalive               # 保活体检（只报有效期；★默认不发续期请求）
 python scripts/qoder_credits.py init                    # 把客户端凭证导出到 qoder_config.json 兜底
 
 # 凭证同步：魔搭/小浣熊/Loomy 轮换制凭证从浏览器自动取新写回（每日任务第 0 步）
 # 阿里云盘不走 cookie（凭证在 Local Storage），不在此列
+python scripts/keepalive_status.py                     # ★全平台保活体检（只读；根凭证到期 + 成功心跳）
+python scripts/keepalive_status.py --warn              # 只看需要动作的行
+python scripts/lobsterai_credits.py keepalive          # 单平台保活体检（TRAE/Qoder/LobsterAI 均有此子命令）
 ```
 
 挂定时任务（如每天 08:30 依次跑四条），脚本自带幂等，当天完成后自动跳过；删除对应 `*_state.json` 可重跑。

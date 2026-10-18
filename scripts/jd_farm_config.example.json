@@ -1,0 +1,6 @@
+{
+  "cookie": "<微信小程序登录态整串 Cookie（微信打开京东小程序→进东东农场→抓任意 api.m.jd.com/client.action 请求的 Cookie 头，含 pin/wq_uin/wq_skey/sdtoken/3AB9D23F7A4B3CSS）>",
+  "x_api_eid_token": "<Cookie 里 3AB9D23F7A4B3CSS 的值(jdd03 开头)，留空会自动从 cookie 提取>",
+  "area": "7_527_0_0",
+  "max_water_rounds": 40
+}

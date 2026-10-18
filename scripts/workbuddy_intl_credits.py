@@ -364,6 +364,14 @@ def cmd_init(argv=None):
     with open(CFG_PATH, "w", encoding="utf-8") as f:
         json.dump(cfg, f, ensure_ascii=False, indent=2)
     print("[init] 已写入 %s（%s）" % (CFG_PATH, "cookie" if cookie else "token"))
+    # ★写完立刻验证：cookie_sync 每天从浏览器重取 cookie 后靠这行的措辞判同步成败，
+    #   只看"已写入"会把没验证过的凭证报成 ✅（写盘成功 ≠ 凭证有效）。
+    st, err = fetch_status(cfg)
+    if st is None:
+        print("[x] 凭证已写入但校验失败：%s" % err)
+        return 3
+    print("[ok] 凭证已写入并校验通过 | active=%s today_checked_in=%s streak=%s"
+          % (st["active"], st["today_checked_in"], st["streak_days"]))
     return 0
 
 
