@@ -619,33 +619,42 @@ def _browser_tokens():
         try:
             import glob
             import browser_cookies as bc
-            ud = bc.browser_ud()
-            profs = ["Default"] + [os.path.basename(p) for p in
-                                   glob.glob(os.path.join(ud, "Profile*")) if os.path.isdir(p)]
-            for prof in profs:
-                lsdir = os.path.join(ud, prof, "Local Storage", "leveldb")
-                if not os.path.isdir(lsdir):
-                    continue
-                for f in glob.glob(os.path.join(lsdir, "*")):
-                    try:
-                        raw = open(f, "rb").read()
-                    except Exception:
+            # ★扫描根要覆盖**两个** User Data：用户主 profile（Thorium/User Data）和
+            #   9222 自动化浏览器实际用的 profile（superpowers-chrome，2026-10-23 实证
+            #   滴滴登录态落在这里而不是主 profile——CDP 开的页进的是 9222 那个实例）。
+            roots = [bc.browser_ud()]
+            sp = os.path.join(os.environ.get("LOCALAPPDATA", ""), "superpowers",
+                              "browser-profiles")
+            if os.path.isdir(sp):
+                roots += [os.path.join(sp, d) for d in os.listdir(sp)
+                          if os.path.isdir(os.path.join(sp, d))]
+            for ud in roots:
+                profs = ["Default"] + [os.path.basename(p) for p in
+                                       glob.glob(os.path.join(ud, "Profile*")) if os.path.isdir(p)]
+                for prof in profs:
+                    lsdir = os.path.join(ud, prof, "Local Storage", "leveldb")
+                    if not os.path.isdir(lsdir):
                         continue
-                    idx = raw.find(b"didih5_trinity_login_ticket")
-                    while idx != -1:
-                        seg = raw[idx:idx + 4096]
-                        eq = seg.find(b"=")
-                        if eq != -1:
-                            val = []
-                            for c in seg[eq + 1:]:
-                                if 33 <= c < 127:
-                                    val.append(chr(c))
-                                else:
-                                    break
-                            v = "".join(val).strip().strip('"')
-                            if len(v) >= 16:
-                                out.append(("didih5_trinity_login_ticket(leveldb)", v))
-                        idx = raw.find(b"didih5_trinity_login_ticket", idx + 1)
+                    for f in glob.glob(os.path.join(lsdir, "*")):
+                        try:
+                            raw = open(f, "rb").read()
+                        except Exception:
+                            continue
+                        idx = raw.find(b"didih5_trinity_login_ticket")
+                        while idx != -1:
+                            seg = raw[idx:idx + 4096]
+                            eq = seg.find(b"=")
+                            if eq != -1:
+                                val = []
+                                for c in seg[eq + 1:]:
+                                    if 33 <= c < 127:
+                                        val.append(chr(c))
+                                    else:
+                                        break
+                                v = "".join(val).strip().strip('"')
+                                if len(v) >= 16:
+                                    out.append(("didih5_trinity_login_ticket(leveldb)", v))
+                            idx = raw.find(b"didih5_trinity_login_ticket", idx + 1)
         except Exception:
             pass
     # 去重（保序）

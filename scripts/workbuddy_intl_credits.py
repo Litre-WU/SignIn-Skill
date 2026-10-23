@@ -375,6 +375,89 @@ def cmd_init(argv=None):
     return 0
 
 
+
+def _cdp_cookies_for(domain):
+    """从 9222 浏览器取指定域的新鲜 cookie（页面级 Network.getCookies 按 URL 过滤）。
+    返回 [ {name, value, domain} ]；拿不到返回 []。"""
+    import urllib.request
+    try:
+        import websocket
+    except ImportError:
+        return []
+    opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    try:
+        with opener.open("http://127.0.0.1:9222/json/list", timeout=4) as r:
+            pages = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:
+        return []
+    target = None
+    for pg in pages:
+        if pg.get("type") == "page":
+            target = pg
+            break
+    if not target:
+        return []
+    try:
+        ws = websocket.create_connection(target["webSocketDebuggerUrl"], timeout=10,
+                                         suppress_origin=True)
+    except Exception:
+        return []
+    out = []
+    try:
+        ws.send(json.dumps({"id": 1, "method": "Network.enable"}))
+        ws.send(json.dumps({"id": 2, "method": "Network.getCookies",
+                            "params": {"urls": ["https://" + domain + "/"]}}))
+        while True:
+            msg = json.loads(ws.recv())
+            if msg.get("id") == 2:
+                out = (msg.get("result") or {}).get("cookies") or []
+                break
+    except Exception:
+        out = []
+    finally:
+        try:
+            ws.close()
+        except Exception:
+            pass
+    return out
+
+
+def cmd_sync(argv):
+    """从本机浏览器（9222）登录态自动取国际版 cookie 并落配置 + 立即验证。"""
+    cfg = load_cfg()
+    domain = cfg.get("domain", DEFAULT_DOMAIN)
+    cookies = _cdp_cookies_for(domain)
+    if not cookies:
+        print("[skip] 9222 浏览器里没有 %s 的 cookie——请先在 Thorium（9222）打开 "
+              "https://%s/ 点右上角「登录」完成 Keycloak 登录，再跑 sync" % (domain, domain))
+        return 0
+    parts = []
+    for c in cookies:
+        v = c.get("value")
+        if v:
+            parts.append("%s=%s" % (c.get("name"), v))
+    cookie = "; ".join(parts)
+    print("[sync] 从浏览器取到 %d 条 cookie（%s）" % (len(parts), domain))
+    cfg["cookie"] = cookie
+    # 立即验证：打一次状态接口
+    path = "/billing/meter/checkin-activity-status"
+    http, j, _raw = _request(cfg, path, body={})
+    if http == 200 and isinstance(j, dict) and j.get("code") == 0:
+        data = j.get("data") or {}
+        print("[OK] 登录态有效 | today_checked_in=%s streak=%s total_credits=%s" % (
+            data.get("today_checked_in"), data.get("streak_days"),
+            data.get("total_credits")))
+        with open(CFG_PATH, "w", encoding="utf-8") as f:
+            json.dump(cfg, f, ensure_ascii=False, indent=2)
+        print("[OK] 已写入 %s" % CFG_PATH)
+        return 0
+    print("[失败] cookie 已取到但接口不认（HTTP %s code=%s msg=%s）——"
+          "可能登录没完成/会话已失效，重新登录后再 sync" % (
+              http, (j or {}).get("code") if isinstance(j, dict) else "?",
+              (j or {}).get("msg") if isinstance(j, dict) else str(j)[:80]))
+    return 2
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
@@ -382,6 +465,8 @@ def main():
     cmd = sys.argv[1]
     if cmd == "init":
         return cmd_init(sys.argv[2:])
+    if cmd == "sync":
+        return cmd_sync(sys.argv[2:])
     cfg = load_cfg()
     if not (cfg.get("cookie") or "").strip() and not (cfg.get("access_token") or "").strip():
         # ★未配置 ≠ 失效：国际版需要独立账号登录态，静默跳过避免每天误报。
