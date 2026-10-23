@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 16 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 18 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -22,6 +22,8 @@
 | LobsterAI（有道） | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）；三步 slot→context→check_in，纯 Bearer 无签名；客户端幂等键 + claimedToday/actions 双重预检；余额用 profile-summary（quota 端点不含活动积分）；★★账号状态保持（2026-10-18，逆向 Our Free Model lobsterai-oauth）：**免抓包**直读桌面端 `%APPDATA%/LobsterAI/lobsterai.sqlite` 的 kv 表（auth_tokens/keyfrom.attribution.v1/auth_user/installation_uuid，★客户端在跑也能读：先 mode=ro&immutable=1 再退 mode=ro），accessToken 是 JWT(约 30 天)；过期/临期(<1h)时 POST /api/auth/refresh（★匿名头不带 Authorization，body 的 firstKeyfrom/latestKeyfrom 用**存储原值**不取当前时刻，响应可能不返新 refreshToken 必须沿用旧值，同一支只试一次、40100/40101 终态不重试），新凭据只写 lobsterai_live_cache.json 不回写 sqlite；`--auth auto|bearer|cookie`，Web cookie 仅作兜底且服务端只认 lobsterai_web_session 一个键 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）；timezone_id 必填（IANA）；业务码在 base_resp.status_code；claim_result 幂等；★points 为总数不相加 bonus_points；今日已领判据 is_today && status==3；★★账号状态保持（2026-10-17，参考 Our Free Model 的 minimax-oauth.ts）：access_token 寿命仅约 1 小时且桌面端会自行轮换，故按四级取凭证——直读 `~/.minimax/auth/prod/cn/mcode-public/auth.json` → 本地 session 缓存 → `grant_type=refresh_token` 向 account.minimax.cn 离线换新 → config 手工值兜底；★单次轮换同一支只试一次、不回写客户端文件；判读只看首行 `[鉴权] 来源=`，正常情况**免抓包** |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
+| wb_balance.py | `scripts/wb_balance.py` |  |
+| 滴滴出行 | `scripts/didi_coupon.py` | 打车/花小猪/加油/货运 4 线自动领券（union.didi.cn reward/receive，按 dsi 幂等）+ 福利中心每日签到领福利金、气泡逐个点、瓜瓜乐报名/领奖（ut.xiaojukeji.com）；★凭证是 **H5 登录票据 token**（`sync` 从本机浏览器登录态自动取：CDP 读 localStorage 为主 + leveldb 兜底，需 Thorium 9222；也可 F12 手取，约 7-30 天有效）。★实证坑：localStorage 值自带引号必须剥、票据键 role 后缀随活动变（实测 role_30004）须前缀匹配；ut/webx 带 wsgsig 签名（md5 盐 + 七元组 + 4 字节掩码 XOR + base64）。失效判据 ut errno=6001 / union errno=1000010005（≥2 线才判失效）；重复签到 errno=40009 算成功 |
 
 ## 安装
 
@@ -62,6 +64,7 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    - `qoder_config.example.json` → `qoder_config.json` — Qoder（阿里，双区）
    - `mt_union_config.example.json` → `mt_union_config.json` — 美团分销会场
    - `jd_farm_config.example.json` → `jd_farm_config.json` — 京东东东农场
+   - `didi_coupon_config.example.json` → `didi_coupon_config.json` — 滴滴出行
    - `lobsterai_config.example.json` → `lobsterai_config.json` — LobsterAI（有道）
    - `minimax_config.example.json` → `minimax_config.json` — MiniMax Code
    - `qoder_intl_config.example.json` → `qoder_intl_config.json` — Qoder（阿里，双区）
@@ -125,6 +128,9 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/zcode_credits.py auto                 # ZCode（智谱）
    python scripts/zcode_credits.py status
    python scripts/zcode_credits.py init
+   python scripts/didi_coupon.py auto                   # 滴滴出行
+   python scripts/didi_coupon.py sync
+   python scripts/didi_coupon.py status
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 

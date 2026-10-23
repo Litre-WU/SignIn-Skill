@@ -1,0 +1,8 @@
+{
+  "tokens": [
+    "<H5登录票据：浏览器打开滴滴领券页 https://vv.didi.cn/a8ZdG0j → 点立即领取登录 → F12控制台执行 localStorage.getItem('didih5_trinity_login_ticket_role_121230').replace(/\"/g,'') 取到的字符串；多账号继续往数组里加，约7-30天有效>"
+  ],
+  "lat": "39.9592",
+  "lng": "116.29871",
+  "city_id": "1"
+}

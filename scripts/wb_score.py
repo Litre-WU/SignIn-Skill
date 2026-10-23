@@ -83,7 +83,10 @@ def fmt(d):
         lines.append("[签到] 今日已签，无需重复打卡")
     else:
         lines.append("[签到] 动作=%s %s" % (act, cr.get("message", "")))
-    lines.append("[积分] 余额 %s · 连续 %s 天" % (total, streak))
+    # ★total_credits 是「Buddy加油站 本期活动累计签到积分」（checkin-activity-status 字段），
+    #   不是客户端用量页的账户可用积分；后者只能由 POST /billing/meter/get-user-resource-summary
+    #   （需客户端 Turing 设备签名头）取到，脚本读不到，别把它当余额报。
+    lines.append("[积分] 加油站本期累计 %s（连签 %s 天，非账户可用余额）" % (total, streak))
 
     t = d.get("travel") or {}
     if t.get("available"):
@@ -149,4 +152,7 @@ def main():
 
 
 if __name__ == "__main__":
+    # auto_log 带 🚀✅，GBK/重定向管道下 print 会 UnicodeEncodeError →
+    # 服务端签到和派发其实都成功了，脚本却 rc=1 报成「WorkBuddy 签到失败」假失效。
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main())

@@ -262,11 +262,28 @@ def do_task(cfg, t):
     return biz(j)
 
 
-def receive_award(cfg, t):
-    body = {"taskType": t.get("taskType"), "taskId": t.get("taskId"),
-            "channel": 0, "pipeExt": t.get("pipeExt") or {}}
-    j = call(APP_FARM, "farm_task_receive_award", body, cfg, ext={"prstate": "0"})
-    return biz(j)
+def receive_award(cfg, t, link_id=None):
+    """★领任务水滴走 apTaskDrawAward（activities_platform 域）——抓包铁证：真机今天领水
+    成功就是这条，返回 {code:0, data:[{awardName:WATER, awardGivenNumber:'10'}]}。
+    之前误用 signed_farm_mp 域的 farm_task_receive_award，被 6002「做任务的用户太多了」
+    挡住——那是**域/接口选错**，不是浏览任务不可自动化。
+    注意参数：channel=4（不是 0）、checkVersion=true、linkId=taskActId 必带。
+    未完成浏览时返回 code=2014「领取次数不足」（业务态，非技术拒绝）。"""
+    body = {"taskType": t.get("taskType") or t.get("awardName"), "taskId": t.get("id", t.get("taskId")),
+            "channel": 4, "checkVersion": True,
+            "linkId": link_id or cfg.get("task_act_id") or DEFAULT_LINK_ID,
+            "pipeExt": t.get("pipeExt") or {}}
+    j = call(APP_ACT, "apTaskDrawAward", body, cfg, path=ACT_PATH)
+    return j.get("code"), j.get("errMsg") or j.get("msg"), (j.get("data") or [])
+
+
+def limit_time_task(cfg, link_id=None):
+    """计时任务（apDoLimitTimeTask，activities_platform）。抓包样本返回 2031
+    「没有需要查询的计时任务」= 当前无进行中计时任务（正常空态，非失效）。
+    农场有时挂"计时领水"活动（在线 N 分钟领水），有则此项能自动领。"""
+    j = call(APP_ACT, "apDoLimitTimeTask",
+             {"linkId": link_id or cfg.get("task_act_id") or DEFAULT_LINK_ID}, cfg, path=ACT_PATH)
+    return j.get("code"), j.get("errMsg") or j.get("msg"), j.get("data")
 
 
 def rain_status(cfg):
@@ -299,9 +316,8 @@ def real_item_id(t):
 
 
 def ap_report_pre(cfg, link_id, t, item_id):
-    """浏览任务前置上报（apReportTaskPreInfo，activities_platform）。实测 code=0——
-    仅登记「开始浏览」，并不等于任务完成（完成仍需真实停留 6s 后 uploadInteractiveAssignment
-    带 assignmentToken，该 token 只有点跳转 URL 才生成，纯 API 拿不到）。"""
+    """浏览任务前置上报（apReportTaskPreInfo，activities_platform）。实测 code=0。
+    与 apTaskDrawAward 配套：真机领水成功序列 = 前置上报 →（浏览计时）→ apTaskDrawAward 领取。"""
     j = call(APP_ACT, "apReportTaskPreInfo",
              {"linkId": link_id, "taskId": t.get("id"), "itemId": item_id,
               "taskType": t.get("taskType"), "channel": 4}, cfg, path=ACT_PATH)
@@ -406,69 +422,88 @@ def run_water_loop(cfg, max_rounds=40, sleep=1.6, verbose=True):
 BROWSE_TYPES = ("BROWSE_CHANNEL", "BROWSE_PRODUCT", "BROWSE")
 
 
-def run_tasks(cfg, verbose=True, max_tasks=10):
-    """领任务水滴。★用 apTaskList（activities_platform，信息全 + 频控域独立于 farm）判定：
-       - canDrawAwardNum>0 / taskFinished → 已完成待领取，farm_task_receive_award 领奖；
-       - 浏览类且未完成（canDraw=0 & !taskFinished）→ 纯 API 无法完成，计入 manual 不空打；
-       - 其余未完成非浏览类（如签到/下单/分享）→ 先 apReportTaskPreInfo 前置，再尝试领奖。
-    返回统计 dict {awarded, manual, browse_pending, other_pending}。"""
+# 领水接口勘误（2026-10-18 真机抓包时序定论）：
+#   真机成功领水链路 = apTaskList(读) → apTaskDrawAward(activities_platform 域) → +N WATER。
+#   领之前**不需要** apReportTaskPreInfo / uploadInteractiveAssignment 前置（连接 3429 时序证实）。
+#   之前误用 signed_farm_mp 域的 farm_task_receive_award → 6002「做任务的用户太多了」（域选错，非任务不可自动化）。
+#   apTaskDrawAward 能否领 = 该任务 canDrawAwardNum>0 或 taskFinished=true；
+#   纯浏览任务 canDraw 由服务端在“真实浏览满 6s”后置位，脚本无法强制，未达标的记 manual。
+def run_tasks(cfg, verbose=True, max_draw=12):
+    """领任务水滴（★正确接口 = apTaskDrawAward, activities_platform 域）。
+    1) 先领计时任务 apDoLimitTimeTask（在线 N 分钟自动领水，若有则纯 API 可拿）；
+    2) 遍历 apTaskList，对 canDrawAwardNum>0 / taskFinished 的任务逐个 apTaskDrawAward 领取；
+    3) 未满足条件的浏览类只计数（不空打：draw 未就绪会 2014，白耗调用还喂养频控）。
+    返回统计 dict {awarded, water_gained, manual, timed_task}。"""
+    stats = {"awarded": 0, "water_gained": 0, "manual": 0, "timed_task": 0}
+    link_id = cfg.get("task_act_id") or DEFAULT_LINK_ID
+    # 1) 计时领水任务（有进行中计时才返回奖，否则 2031 空态，不算失败）
+    tc, tm, tdata = limit_time_task(cfg, link_id)
+    if tc == 0 and tdata:
+        stats["timed_task"] += 1
+        w = _water_of(tdata)
+        stats["water_gained"] += w
+        if verbose:
+            print("[计时任务] 领取成功 +%s水" % w)
+    elif verbose and tc not in (2031,) and tc not in TRANSIENT:
+        print("[计时任务] code=%s %s" % (tc, tm))
+
+    # 2) 常规任务领取
     code, msg, tasks = ap_task_list(cfg)
     if not tasks:
         if verbose:
             print("[任务] apTaskList 无任务或限流（code=%s %s）" % (code, msg))
-        return {"awarded": 0, "manual": 0, "browse_pending": 0, "other_pending": 0}
-    awarded = manual = browse_pending = other_pending = 0
-    link_id = cfg.get("task_act_id") or DEFAULT_LINK_ID
-    for t in tasks[:max_tasks]:
+        return stats
+    drew = 0
+    for t in tasks:
         title = t.get("taskShowTitle") or t.get("taskTitle") or t.get("taskType")
-        tt = str(t.get("taskType", "")).upper()
-        finished = bool(t.get("taskFinished"))
         can_draw = int(t.get("canDrawAwardNum") or 0)
-        if can_draw > 0 or finished:
-            # 已完成/可领奖：走 farm 侧 receive_award（带真实 itemId 的完整结构）
-            award = (t.get("configBaseList") or [{}])[0]
-            bca, bma, resa = receive_award(cfg, {"taskType": t.get("taskType"),
-                                                 "taskId": t.get("id"), "pipeExt": t.get("pipeExt") or {}})
-            if bca in (0, 200):
-                awarded += 1
-                if verbose:
-                    print("[任务] 「%s」领奖成功(+%s%s)" % (title, award.get("awardGivenNumber"),
-                          award.get("interactiveAwardName") or ""))
-            elif bca in (-4001,) or "太快" in str(bma) or bca in THROTTLE:
-                if verbose:
-                    print("[任务] 「%s」领奖被频控（%s），下次再领" % (title, bma))
-            elif verbose:
-                print("[任务] 「%s」领奖 bizCode=%s %s" % (title, bca, bma))
-            time.sleep(1.2)
+        finished = bool(t.get("taskFinished"))
+        if not (can_draw > 0 or finished):
+            # 未就绪（多为纯浏览需真人点击）→ 计数不空打
+            stats["manual"] += 1
             continue
-        # 未完成：浏览类只能真实点击
-        if tt.startswith("BROWSE"):
-            browse_pending += 1
+        if drew >= max_draw:
+            break
+        drew += 1
+        bc, bm, data = receive_award(cfg, t, link_id)
+        if bc in (0, 200):
+            w = _water_of(data)
+            stats["awarded"] += 1
+            stats["water_gained"] += w
             if verbose:
-                print("[任务] 「%s」浏览类未完成，需真实点击停留 6s（纯 API 无法自动，不空打）" % title)
-            continue
-        # 其它未完成非浏览：前置上报后再试领奖
-        other_pending += 1
-        iid = real_item_id(t)
-        rpc, rpm = ap_report_pre(cfg, link_id, t, iid)
-        if verbose:
-            print("[任务] 「%s」(%s itemId=%s) 前置上报 code=%s%s" % (
-                title, tt, iid, rpc, (" %s" % rpm if rpm else "")))
-        if rpc == 0 and iid:
-            bca, bma, _ = receive_award(cfg, {"taskType": t.get("taskType"),
-                                              "taskId": t.get("id"), "pipeExt": t.get("pipeExt") or {}})
-            if bca in (0, 200):
-                awarded += 1
-                other_pending -= 1
-                if verbose:
-                    print("[任务] 「%s」上报后即领奖成功(+%s)" % (
-                        title, (t.get("configBaseList") or [{}])[0].get("awardGivenNumber")))
+                print("[任务] 「%s」领水成功 +%s水" % (title, w))
+        elif bc in TRANSIENT or "太快" in str(bm):
+            if verbose:
+                print("[任务] 「%s」领水被频控（%s），下次再领" % (title, bm))
+        elif bc == 2014:
+            # 到这一步仍 2014 = 表面 canDraw 但实际额度竞争失败，归 manual
+            stats["manual"] += 1
+            stats["awarded"] -= 0
+            if verbose:
+                print("[任务] 「%s」领取次数不足(2014)，需真实浏览/明日再领" % title)
+        elif verbose:
+            print("[任务] 「%s」领水 code=%s %s" % (title, bc, bm))
         time.sleep(1.0)
-    if verbose and browse_pending:
-        print("[任务] 共 %d 个浏览类任务待真实点击，脚本如实标 manual（activityToken 无法纯 API 生成）"
-              % browse_pending)
-    return {"awarded": awarded, "manual": browse_pending, "browse_pending": browse_pending,
-            "other_pending": other_pending}
+    if verbose and stats["manual"]:
+        print("[任务] 共 %d 项未就绪（多为浏览类需真人点击），已就绪 %d 项全部尝试领取"
+              % (stats["manual"], drew))
+    return stats
+
+
+def _water_of(data):
+    """从 apTaskDrawAward/计时任务响应 data 里汇总水滴数。data 可能是 list[award] 或 dict。"""
+    if isinstance(data, dict):
+        data = data.get("data") or data.get("taskAwardResultVOS") or [data]
+    if not isinstance(data, list):
+        return 0
+    tot = 0
+    for a in data:
+        if isinstance(a, dict) and str(a.get("awardName", "")).upper() == "WATER":
+            try:
+                tot += int(a.get("awardGivenNumber") or 0)
+            except (TypeError, ValueError):
+                pass
+    return tot
 
 
 # ── 命令 ──────────────────────────────────────────────────────────────────
@@ -636,16 +671,14 @@ def cmd_auto():
         print("[失效] 小程序登录态过期 —【东东农场失效】需微信重开农场刷新 cookie")
         return 2
     report_visit(cfg)
+    # ★领任务水放浇水前：领到的水直接进瓶，喂给随后的浇水循环
+    tstat = run_tasks(cfg)
     wstat = run_water_loop(cfg, max_rounds=int(cfg.get("max_water_rounds") or 40))
-    # 频控收尾时跳过领任务奖（接口同样吃限流，徒增命中）；浏览任务本就只计数不打
-    tstat = {"awarded": 0, "manual": 0, "browse_pending": 0, "other_pending": 0}
-    if wstat.get("ok") and not wstat.get("throttled"):
-        tstat = run_tasks(cfg)
     _persist(cfg)
-    print("[汇总] 浇水 %s 次(普通%s/快速⚡%s) → 瓶水剩 %s | 任务领奖 %s / 浏览类需手动 %s / 其它待办 %s%s" % (
+    print("[汇总] 领任务水 +%s（计时%s/常规%s） | 浇水 %s 次(普通%s/快速⚡%s) → 瓶水剩 %s | 未就绪待手动 %s%s" % (
+        tstat.get("water_gained", 0), tstat.get("timed_task", 0), tstat.get("awarded", 0),
         wstat.get("watered", 0), wstat.get("watered_normal", 0), wstat.get("watered_fast", 0),
-        wstat.get("bottle_left"), tstat.get("awarded", 0), tstat.get("browse_pending", 0),
-        tstat.get("other_pending", 0),
+        wstat.get("bottle_left"), tstat.get("manual", 0),
         " | 已种成🎉" if wstat.get("finished") else
         ("（中途频控收尾）" if wstat.get("throttled") else "")))
     if wstat.get("ok"):
