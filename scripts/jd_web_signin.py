@@ -118,13 +118,15 @@ def _dpapi(data):
     return s
 
 
-def _read_cookies_db(path):
-    """读一个 Cookies SQLite 文件，返回 {name: value}（同名取最长）。"""
+def _read_cookies_db(path, ud=None):
+    """读一个 Cookies SQLite 文件，返回 {name: value}（同名取最长）。
+    ud = 该库所属浏览器 profile 的 User Data（Local State 里的 os_crypt 主密钥按
+    profile 而不同；缺省用 _browser_ud()，读 superpowers 等旁路 profile 须显式传）。"""
     import base64
     import sqlite3
     from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    with open(os.path.join(_browser_ud(), "Local State"), encoding="utf-8") as f:
+    with open(os.path.join(ud or _browser_ud(), "Local State"), encoding="utf-8") as f:
         ls = json.load(f)
     key = _dpapi(base64.b64decode(ls["os_crypt"]["encrypted_key"])[5:])
     if not key:
@@ -317,6 +319,41 @@ def extract_cookies(verbose=False):
                 print("[cookie] 磁盘直读 OK %d 字节" % len(raw))
             return _read_cookies_db_bytes(raw)
 
+    # ★第三通道 2026-10-23：superpowers-chrome 持久 profile（9222 浏览器平时用的就是它）。
+    #   用户「在浏览器里登录京东」大多发生在这个窗口；9222 离线（run_all 收尾回收）后
+    #   该库**无独占锁**可直接复制——而主 Thorium 的 User Data 还开着、永远拷不动。
+    #   必须排在 TEMP 快照**之前**（16:35 实测：_jd_ck.db 是 10-21 的，用户 16:26 刚在
+    #   superpowers profile 登录，47 条 jd cookie 含 thor/pin/flash 全解出且 query 200；
+    #   旧代码先撞 TEMP 陈旧快照，新鲜登录态被 5 天前的值盖掉 → 假 login_expired）。
+    import shutil
+    import tempfile
+    for sp_ud in (os.path.join(os.environ.get("LOCALAPPDATA", ""),
+                               "superpowers", "browser-profiles", "superpowers-chrome"),):
+        sp_ck = os.path.join(sp_ud, "Default", "Network", "Cookies")
+        if not (os.path.isfile(sp_ck) and os.path.isfile(os.path.join(sp_ud, "Local State"))):
+            continue
+        try:
+            snap = os.path.join(tempfile.gettempdir(), "_jd_spck_%d.db" % os.getpid())
+            shutil.copyfile(sp_ck, snap)
+            try:
+                ck = _read_cookies_db(snap, ud=sp_ud)
+            finally:
+                try:
+                    os.remove(snap)
+                except OSError:
+                    pass
+            if ck.get("thor"):
+                age = int((time.time() - os.path.getmtime(sp_ck)) / 60)
+                COOKIE_SRC.update(name="superpowers", age_min=age)
+                _refresh_tmp_cache(open(sp_ck, "rb").read())
+                if verbose:
+                    print("[cookie] superpowers profile 直读 %d 个（库 %d 分钟前更新）"
+                          % (len(ck), age))
+                return ck
+        except Exception as e:
+            if verbose:
+                print("[cookie] superpowers profile 读取失败: %s" % e)
+
     tmp = os.path.join(os.environ.get("TEMP", ""), "_jd_ck.db")
     if os.path.isfile(tmp):
         try:
@@ -428,6 +465,19 @@ def ensure_cookies(verbose=False):
         return cfg_ck, False
     try:
         ck = extract_cookies(verbose)
+        # ★防回退 2026-10-23 实测：run_all 收尾把 9222 headless 回收后，再单跑时
+        #   CDP 离线、磁盘库被 Thorium 独占锁，extract 会退到 TEMP 旧快照并把
+        #   刚落盘的**新鲜登录态整串覆盖掉**（16:28 实测：15:48 用户刚登录、
+        #   16:06 还签到成功，16:28 快照回填后立刻变假 login_expired）。
+        #   只要来源是 temp_cache 且已存配置比那份快照更年轻 → 用配置、不覆写。
+        if COOKIE_SRC.get("name") == "temp_cache" and cfg_ck.get("thor"):
+            snap_age = COOKIE_SRC.get("age_min", 0) * 60
+            if cfg_ts and (time.time() - cfg_ts) < snap_age:
+                if verbose:
+                    print("[cookie] TEMP 快照（%d 分钟前）比已存配置（%s）陈旧 → 沿用配置，不覆写"
+                          % (COOKIE_SRC.get("age_min", 0),
+                             time.strftime("%m-%d %H:%M", time.localtime(cfg_ts))))
+                return cfg_ck, False
         save_cfg(ck)
         return ck, False
     except Exception as e:

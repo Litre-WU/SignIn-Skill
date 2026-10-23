@@ -179,7 +179,8 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 ### 6) 京东京豆（Web 端，2026-10-12 自行逆向）
 
 **无需扫码、无需抓包**：直接用 Thorium 浏览器里已登录的京东 PC 账号（`.jd.com` 域 cookie）。
-脚本按**新鲜度**三级取 cookie：① CDP 9222 实时读（浏览器开着时唯一能拿到"刚刚登录"的新值）→ ② 磁盘直读（浏览器没在跑时）→ ③ TEMP 快照（可能陈旧，脚本会打印它多少分钟前、并在 `login_expired` 里带纠正提示）。
+脚本按**新鲜度**四级取 cookie：① CDP 9222 实时读（浏览器开着时唯一能拿到"刚刚登录"的新值）→ ② 磁盘直读（浏览器没在跑时）→ ③ **superpowers-chrome 持久 profile 磁盘直读**（2026-10-23 新增，★必须排在 TEMP 快照之前：9222 浏览器平时就是 superpowers 实例，用户在浏览器里"登录京东"大多发生在这个窗口；run_all 收尾回收 9222 后该库无锁可复制，而主 Thorium 的 User Data 还开着永远拷不动——旧代码先撞 10-21 的 TEMP 陈旧快照，把 16:26 的新鲜登录态盖成假 login_expired，即本次事故根因）→ ④ TEMP 快照（可能陈旧，脚本会打印它多少分钟前、并在 `login_expired` 里带纠正提示）。
+★防回退（2026-10-23）：`ensure_cookies` 里若本次来源是 temp_cache 且已存 `jd_web_config.json` 比那份快照**更年轻**，直接沿用配置、**不覆写**——杜绝"新登录态被旧快照回填"。
 ★★**「浏览器开着就拷不动」这条 2026-10-15 的结论已在 2026-10-17 复测收窄——只适用于"整库复制"，不适用于脚本的取数路径**：
 - 仍然成立的：`esentutl /y`（`-1032 JET_errFileAccessDenied`）、`robocopy /B`、`cmd copy`、Python `open()` 这些**要写句柄或整文件独占**的复制手段，Thorium 在跑时确实失败。
 - **不成立**：脚本实际走的是 `CreateFileW(GENERIC_READ=0x80000000, FILE_SHARE_READ|WRITE|DELETE)` **只读直开 + 自己解析 SQLite**，2026-10-17 在「Thorium 正在运行、没开 9222」下实测成功（读到 1,114,112 字节正本、提出 45 个 cookie，且是重登后的新值：`flash` 已变、条数从 38→45）。所以**别一遇"浏览器开着"就叫用户关浏览器或加 9222** —— 先直接跑 `jd_web_signin.py cookie` 看它报的哪一级源。
