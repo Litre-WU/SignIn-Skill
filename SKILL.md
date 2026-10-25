@@ -67,7 +67,7 @@ description: 一站式签到/领券综合工具，整合26个已抓包验证的�
 | `csair` | 打开 PC 微信南航小程序首页 | `mini/api/login/login` | 响应体 `{sessionId,openId,unionId}` | `csair_signin.py refresh` |
 | `modelscope` | 浏览器打开 modelscope.cn（已登录） | host `www.modelscope.cn` | 请求头 `cookie`（含 m_session_id） | `ms_magicube.py init` |
 | `libao` | 小程序进任意页 | host `cs.libao.cn` | 请求头 `authorization` | `libao_integral.py init --auth` |
-| `gr` | **在小程序里手动分享一次文章**（定性接口改版 vs 限流的唯一对照样本） | `shareArticle` / `user/acquisition` | body 的 `openId`+`token` | `gr_signin.py init --token --openid` |
+| `gr` | **在小程序「社区 → 话题详情页」点一次分享转发**（2026-10-25 起 04/57 已关通道，改抓 33 话题分享；也是重建 token 的入口动作） | `shareManuscript`（regex `shareArticle\|shareManuscript`）/ `user/acquisition` | body 的 `openId`+`token` | `gr_signin.py init --token --openid` |
 | `huawei` | 优先**打开 CodeArts Agent 并登录**（免抓包）；否则开 devcloud 页面 | `PromptCenterService` | 请求头 `cookie`（含 `devclouddevuibjtcftk`） | `hw_codearts.py init` |
 
 ### 三条必须知道的坑
