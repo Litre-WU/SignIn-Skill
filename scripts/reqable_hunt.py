@@ -242,8 +242,9 @@ REGISTRY = [
     },
     {
         "id": "gr", "name": "GR 小程序（丰田 GAZOO Racing）",
-        "action": "★在小程序里【手动分享一次文章】——这是判定「接口改版 vs 账号限流」的唯一对照样本",
-        "filter": {"type": "keyword", "pattern": "shareArticle", "regex": False},
+        "action": "★在小程序里【社区→话题详情页点一次分享转发】（话题分享=当前唯一有效额外积分源，+25/次）；"
+                  "或手动分享一篇文章（用于对照 shareArticle 是否已被品牌方关停）",
+        "filter": {"type": "keyword", "pattern": "shareArticle|shareManuscript", "regex": True},
         "match": lambda rec: "toyotagazooracing" in (rec.get("url") or ""),
         # user/acquisition 的 body 里有 openId+token；oauth2 响应里有 refresh_token
         "extract": lambda rec: {
