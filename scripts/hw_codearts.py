@@ -380,15 +380,23 @@ def get_delivery(cookie, cftk):
 
 
 def pick_daily(items, campaign_id="1"):
-    """优先按 campaign_id 精确命中；否则回退前端 Ct() 的 type 判定"""
+    """优先按 campaign_id 精确命中；否则回退前端 Ct() 的 type 判定。
+    ★第三档**故意不看 claimable/claimed/status**：领完之后服务端仍把该活动留在
+      delivery 里、只是 status=CLAIMED/CONFIRMED；权益未到刷新点时同理。前两档把
+      这种"在清单但不可领"的活动筛掉，脚本就会报「未定位到每日签到活动」rc=3，
+      日报据此误标【华为码道失效】（2026-10-31 实测：真实 campaignId=34 而 config
+      默认 cid=1，当天领完再跑必命中不了）。交回 _core 按 status 走
+      [跳过]/[今日不可领] 的 rc=0 分支才是对的；活动真下线时清单里就没有
+      DAILY_TYPES 那一项，仍然返回 None，不误吞真失效。"""
     for it in items or []:
         if str(it.get("campaignId")) == str(campaign_id):
             return it
-    for it in items or []:
-        if (it.get("type") in DAILY_TYPES and it.get("claimable") is not False
-                and not it.get("claimed") and it.get("status") not in DONE_STATUS):
+    daily = [it for it in (items or []) if it.get("type") in DAILY_TYPES]
+    for it in daily:
+        if (it.get("claimable") is not False and not it.get("claimed")
+                and it.get("status") not in DONE_STATUS):
             return it
-    return None
+    return daily[0] if daily else None
 
 
 def fmt_item(it):

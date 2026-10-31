@@ -328,7 +328,16 @@ def wall_info(opener, token, activity_view_id, instance_id, cfg):
         "gdBs": "0000", "new_gundam": 1,
     })
     url = MARKET + "/playcenter/generalcoupon/info?" + qs
-    req = urllib.request.Request(url, headers={"Cookie": "token=" + token, "User-Agent": mt.UA})
+    # ★2026-10-31 修复：网关 10-27 起对 /playcenter/generalcoupon/info 强制 csec/H5guard 校验，
+    # 裸请求恒返 openresty 403（HTML）。真实浏览器抓包(记录91)是 GET + mtgsig 挂 **query**、
+    # 并带 yodaReady=h5&csecplatform=4&csecversion=4.3.0。实测：原样请求 403、加签后 200，
+    # 且假 activityViewId 加签前也是 403 → 403 是网关签名拦截而非活动失效。
+    url += "&yodaReady=h5&csecplatform=4&csecversion=4.3.0"
+    mtgsig, _ = h5_sign("GET", url, None)
+    url += "&mtgsig=" + urllib.parse.quote(mtgsig if isinstance(mtgsig, str) else json.dumps(mtgsig))
+    req = urllib.request.Request(url, headers={
+        "Cookie": "token=" + token, "User-Agent": mt.UA,
+        "Referer": MARKET + "/gd2/wm/4TtwZI", "Accept": "application/json, text/plain, */*"})
     with opener.open(req, timeout=30) as r:
         body = r.read().decode("utf-8", "replace")
     j = json.loads(body)
@@ -347,8 +356,12 @@ def wall_tabs(coupon_list):
 
 
 def wall_fetch(cookie_str, token, activity_view_id, instance_id, cfg, tabs, partner):
-    """POST generalcoupon/fetch (promotion 域)。mtgsig 放 header, 必须带 info 下发的 cookie"""
-    url = PROMO + "/playcenter/generalcoupon/fetch?isMini=1&ctype=%s&isInDpEnv=0" % cfg.get("wm_ctype", "fulishe_wxapp")
+    """POST generalcoupon/fetch (promotion 域)。mtgsig 放 header, 必须带 info 下发的 cookie
+    ★2026-10-31：网关同样对 fetch 强制 csec 校验（缺 query 三件套恒 403 HTML），
+    对齐真实浏览器抓包(记录119 fallCoupon/record)：query 带 yodaReady/csecplatform/csecversion，
+    且 h5_sign 必须对**最终完整 url** 计算（签名输入含 query）。"""
+    url = (PROMO + "/playcenter/generalcoupon/fetch?isMini=1&ctype=%s&isInDpEnv=0"
+           "&yodaReady=h5&csecplatform=4&csecversion=4.3.0" % cfg.get("wm_ctype", "fulishe_wxapp"))
     data = {
         "initialLng": cfg.get("wm_longitude", 0), "initialLat": cfg.get("wm_latitude", 0),
         "actualLat": cfg.get("wm_actual_latitude", 0), "actualLng": cfg.get("wm_actual_longitude", 0),
@@ -360,8 +373,22 @@ def wall_fetch(cookie_str, token, activity_view_id, instance_id, cfg, tabs, part
         "partner": partner if partner is not None else 4,
         "appid": "wx2c348cf579062e56",
     }
-    mtgsig, fp = h5_sign("POST", url, data)
+    # ★2026-10-31 修复二：网关现对 POST 做 body 级签名校验。真实浏览器(记录119)签名时
+    # body 里**已含** mtFingerPrint；原实现是先签再注入指纹 → 签名与实发 body 不一致 → 403。
+    # 改两遍签：第一遍取 fp，注入后对最终 body 再签。
+    _, fp = h5_sign("POST", url, data)
     data["mtFingerprint"] = fp
+    mtgsig, _ = h5_sign("POST", url, data)
+    # ★2026-10-31 修复三（根因）：fetch 风控校验 mtgsig.a3(dfpid) 与 Cookie 的 WEBDFPID 一致。
+    # 浏览器端两者同源(localStorage 固定值)；我们签名器每次随机新生成 → 不同步就恒 403。
+    # 实测「cookie WEBDFPID=本次签名 a3」即放行(假 tabs 返 501 参数错误=进入业务层)。
+    try:
+        a3 = json.loads(mtgsig).get("a3", "")
+    except Exception:
+        a3 = ""
+    if a3:
+        cookie_str = re.sub(r"WEBDFPID=[^;]*;?\s*", "", cookie_str).rstrip("; ")
+        cookie_str = (cookie_str + "; WEBDFPID=" + a3) if cookie_str else "WEBDFPID=" + a3
     req = urllib.request.Request(
         url, data=json.dumps(data, separators=(",", ":"), ensure_ascii=False).encode("utf-8"),
         headers={"Content-Type": "application/json", "mtgsig": mtgsig, "Cookie": cookie_str,

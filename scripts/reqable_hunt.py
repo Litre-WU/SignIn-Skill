@@ -207,6 +207,35 @@ def find_exe():
     return None
 
 
+# ─────────────────────────────────── 腾势 DENZA 解密辅助 ─────────────────────────
+# decryptCode 响应体是 AES-CBC 密文（normal 场景密钥，见 byd_signin.py）。reqable MCP
+# 抓到的记录 text 外面还会套一层 JSON 字符串引号，先剥掉再解密。
+def _denza_extract(rec):
+    out = {"session_id": "", "expired_timestamp": 0}
+    try:
+        import base64
+        from Crypto.Cipher import AES
+        import byd_signin as bz
+        b = ((rec.get("response") or {}).get("body") or {})
+        txt = b.get("text") if isinstance(b, dict) else None
+        if not txt:
+            return out
+        txt = txt.strip()
+        if txt.startswith('"') and txt.endswith('"'):
+            txt = json.loads(txt)
+        dec = bz.aes_decrypt(txt, bz.NORMAL_AES_KEY, bz.NORMAL_AES_IV)
+        if not dec:
+            return out
+        j = json.loads(dec)
+        d = j.get("data") or {}
+        if j.get("ret") == 200 and d.get("session_id"):
+            out["session_id"] = d["session_id"]
+            out["expired_timestamp"] = int(d.get("expired_timestamp") or 0)
+    except Exception:
+        pass
+    return out
+
+
 # ─────────────────────────────────── 注册表 ───────────────────────────────────
 # 每条：id / 平台 / 用户要做的动作 / MCP 过滤参数 / 记录识别 / 提取 / 落地命令
 REGISTRY = [
@@ -371,6 +400,22 @@ REGISTRY = [
         "note": "★凭据已从『读 ~/.zcode/v2/credentials.json』改为 OAuth（上游 2026-10-05 删除免抓包），"
                 "必须抓 zcode_jwt + device_mid；领取还需阿里云验证码（status 查询不需要）",
     },
+    {
+        "id": "denza", "name": "腾势 DENZA（比亚迪汽车小程序）",
+        "action": "★打开 PC 微信「腾势」小程序（进首页即自动 wx.login → mina.decryptCode 换新 session；"
+                  "会话仅约 2 小时有效，须在总控跑之前 1 小时内打开过一次）",
+        "filter": {"type": "keyword", "pattern": "mina.decryptCode", "regex": False},
+        "match": lambda rec: "service20.denzacloud.com" in (rec.get("url") or "")
+                             and "mina.decryptCode" in ((rec.get("request") or {}).get("path") or ""),
+        "extract": _denza_extract,
+        "land": lambda f: [PY, os.path.join(HERE, "byd_signin.py"), "init",
+                           "--session", f["session_id"], "--expired", str(f["expired_timestamp"])],
+        "verify": lambda rec: bool(_denza_extract(rec).get("session_id")),
+        "note": "decryptCode 响应体=AES 密文（NORMAL 场景密钥解密）→ {ret,data:{session_id,expired_timestamp}}；"
+                "★session 有效期约 2h（expired_timestamp 减签发时间实测 ≈7200s），客户端靠每次 onShow 自动重登续命，"
+                "脚本无 wx.login 无法离线续——保活=「微信里打开小程序 → harvest 收割最新记录」这条链；"
+                "任务系统(ret=401)比签到更严：以 tasks 返回 9 个任务为成功判据",
+    },
 ]
 
 
@@ -529,7 +574,8 @@ def cmd_harvest(args):
                       "minimax": "minimax_config.json",
                       "workbuddy-intl": "workbuddy_intl_config.json",
                       "qoder-intl": "qoder_intl_config.json",
-                      "zcode": "zcode_config.json"}.get(pid, "") or "",) if n]
+                      "zcode": "zcode_config.json",
+                      "denza": "byd_config.json"}.get(pid, "") or "",) if n]
             for cf in cfgs:
                 if os.path.exists(cf):
                     bak = cf + ".bak-" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")

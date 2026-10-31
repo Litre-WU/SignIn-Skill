@@ -290,6 +290,78 @@ def read_v10_json(path, user_data_dir=None):
         return None
 
 
+# ── 字节 byteCrypto 信封（TRAE 桌面端 storage.json 里的本地凭证）──────────────
+# 2026-10-31 照 out-build/vs/base/common/byteCrypto.js（装机 main.js 内联）逐行核对：
+#   blob = hdr(6) || keyMat(32) || AES-128-CBC( sha512(plain)(64) || plain )
+#   hdr  = 116('t') 99('c') 5 16 0 0        ← uKe() 按这 6 字节认版本
+#   aesKey/iv 全由 keyMat 派生：n = sha512(keyMat) || SALT(64)
+#                                n[0:64] = sha512(n) → aesKey=n[0:16] iv=n[16:32]
+#   ★SALT 是包里两张 64 字节表逐字节异或。表名（Aue/Due）是压缩器赋的，客户端一升级
+#     就改名，所以**不写死表值**：从 main.js 按长度捞候选表、两两异或当 salt 逐个试，
+#     信封自带的 sha512 前缀就是 oracle——试错只会解不开，不会解出脏数据。
+BC_HDR = bytes([116, 99, 5, 16, 0, 0])
+_BC_TV, _BC_Z2, _BC_OP, _BC_SL = 6, 32, 64, 16
+
+
+def byte_crypto_salts(js_text):
+    """从 JS 文本里捞 byteCrypto 的两张 64 字节表，两两异或出候选 salt。"""
+    tables = []
+    for m in re.finditer(r"\[(\d{1,3}(?:,\d{1,3}){63})\]", js_text or ""):
+        b = bytes(int(x) for x in m.group(1).split(","))
+        if b not in tables:
+            tables.append(b)
+    out = []
+    for i, a in enumerate(tables):
+        for b in tables[i + 1:]:
+            s = bytes(x ^ y for x, y in zip(a, b))
+            if s not in out:
+                out.append(s)
+    return out
+
+
+def byte_crypto_open(blob, salt):
+    """按给定 salt 解一个 byteCrypto blob（bytes）→ 明文 bytes；格式/校验不过 → None。"""
+    try:
+        if len(blob) <= _BC_TV + _BC_Z2 or blob[:_BC_TV] != BC_HDR:
+            return None
+        n = bytearray(hashlib.sha512(blob[_BC_TV:_BC_TV + _BC_Z2]).digest() + salt)
+        n[:_BC_OP] = hashlib.sha512(bytes(n)).digest()
+        key, iv = bytes(n[:_BC_SL]), bytes(n[_BC_SL:2 * _BC_SL])
+        ct = blob[_BC_TV + _BC_Z2:]
+        if len(ct) % _BC_SL:
+            return None
+        from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+        d = Cipher(algorithms.AES(key), modes.CBC(iv)).decryptor()
+        raw = d.update(ct) + d.finalize()
+        pad = raw[-1]
+        if not 1 <= pad <= _BC_SL:
+            return None
+        raw = raw[:-pad]
+        if raw[:_BC_OP] != hashlib.sha512(raw[_BC_OP:]).digest():
+            return None
+        return raw[_BC_OP:]
+    except Exception:
+        return None
+
+
+def byte_crypto_json(b64, salts):
+    """base64 信封 → 解出的 dict/list；认不出格式 → None。逐个 salt 试到 oracle 通过。"""
+    import base64 as b64m
+    try:
+        blob = b64m.b64decode(b64, validate=False)
+    except Exception:
+        return None
+    for salt in salts:
+        pt = byte_crypto_open(blob, salt)
+        if pt is None:
+            continue
+        try:
+            return json.loads(pt.decode("utf-8"))
+        except Exception:
+            return None
+    return None
+
+
 def read_sqlite_kv(path, timeout=3):
     """只读 Electron 客户端 sqlite 的 `kv` 表 {key: value}。
     ★先 `immutable=1` 再回退 `mode=ro`：客户端在跑时后者会撞独占锁。"""

@@ -90,14 +90,67 @@ def load_cfg():
         return {}
 
 
-# ── 保活：跟着桌面端登录走（★TRAE 本机没有 refresh_token，不能离线续期）──────
-# 实测：trae_config.json 里的 Cloud-IDE-JWT（14 天，签到用这份）与
-#   ~/.trae-cn/trae-jwt-token（7 天，IDE 自用）**iat 精确相同**——是同一次登录发的两种用途。
-#   所以用户在 TRAE 里重登一次，两份都会刷新；我们只需在 config 那份变旧时**自动跟上**，
-#   不必再叫人来抓包。搜过 ~/.trae-cn 与 %APPDATA%\Trae CN：无 refresh_token，
-#   OFM 侧虽有 ExchangeToken grant（body 需 RefreshToken+ClientID），本机拿不到 → 不做死代码。
+# ── 保活：跟着桌面端活票走（★只读，绝不代它续期）───────────────────────────
+# 2026-10-31 拆机核对 Trae CN 3.4.11（旧注释说的"本机拿不到 refresh_token"是错的）：
+#   · 客户端把 OAuth 结果写进 %APPDATA%\Trae CN\User\globalStorage\storage.json，
+#     键 `iCubeAuthInfo://<authProviderId>`，值是**字节 byteCrypto 信封**
+#     （格式与解法只有一份出处：credential_core.byte_crypto_*）。明文里同时有
+#     token(14 天) 与 refreshToken(约 180 天)——就是日志里那条
+#     exchangeTokenByAuthCode 的产物；设备 EC 私钥在同前缀的 `://icube-dc:<devid>`。
+#   · 客户端**每次启动都会** exchangeTokenByRefreshToken 自动续票（日志实证 response
+#     success），所以只要 14 天内开过一次 TRAE，我们读到的就永远是活票。
+#   ★不去打 ExchangeToken 续期：store 那支 refreshToken 是**单次轮换**且和用户 IDE
+#     共用同一支，我们刷一次就把用户客户端的登录态作废（credential_core 铁律 2）。
 IDE_TOKEN_FILES = (os.path.join("~", ".trae-cn", "trae-jwt-token"),
                    os.path.join("~", ".trae", "trae-jwt-token"))
+
+
+def _store_salt_candidates():
+    """从装机 main.js 现取 byteCrypto 的 salt 候选——两张表的名字是压缩器赋的
+    （当前叫 Aue/Due），客户端一升级就改名，所以按长度捞表、两两异或去试，
+    由信封自带的 sha512 前缀当 oracle，试错只会解不开、不会解出脏数据。"""
+    import credential_core as cc
+    local = os.environ.get("LOCALAPPDATA", "")
+    cands = [os.path.join(local, "Programs", name, "resources", "app", "out", "main.js")
+             for name in ("Trae CN", "Trae")]
+    for js in cands:
+        if not js or not os.path.exists(js):
+            continue
+        try:
+            text = open(js, encoding="utf-8", errors="replace").read()
+        except Exception:
+            continue
+        i = text.find("byteCrypto.js")
+        if i < 0:
+            continue
+        salts = cc.byte_crypto_salts(text[max(0, i - 30000):i + 6000])
+        if salts:
+            return salts
+    return []
+
+
+def _store_tokens():
+    """解桌面端 storage.json → [(jwt, 来源标签)]；没装/解不开就返回空（不打扰判读）。"""
+    import credential_core as cc
+    path = cc.find_first([cc.appdata("Trae CN", "User", "globalStorage", "storage.json"),
+                          cc.appdata("Trae", "User", "globalStorage", "storage.json")])
+    if not path:
+        return []
+    salts = _store_salt_candidates()
+    if not salts:
+        return []
+    try:
+        store = json.load(open(path, encoding="utf-8", errors="replace"))
+    except Exception:
+        return []
+    out = []
+    for k, v in store.items():
+        if not k.startswith("iCubeAuthInfo://") or not isinstance(v, str):
+            continue
+        j = cc.byte_crypto_json(v, salts)
+        if isinstance(j, dict) and j.get("token"):
+            out.append((str(j["token"]), "storage.json#%s" % k.split("://", 1)[1]))
+    return out
 
 
 def _ide_tokens():
@@ -113,6 +166,7 @@ def _ide_tokens():
                 out.append((t, fp))
         except Exception:
             pass
+    out.extend(_store_tokens())
     return out
 
 
@@ -131,8 +185,9 @@ def refresh_cfg_from_client(cfg, verbose=True):
             best, best_exp, src = t, e, fp
     if not best:
         if cur_exp and cur_exp < time.time() * 1000:
-            print("[鉴权][TRAE] ★config 里的 JWT 已过期且桌面端没有更新的一份 → "
-                  "请在 TRAE 客户端重新登录一次，再跑 `init --token <Cloud-IDE-JWT> --uid <uid>`")
+            print("[鉴权][TRAE] ★config 与桌面端本地凭证里都没有更新的活票 → "
+                  "打开一次 TRAE 客户端（它启动即自动续票），脚本下次会自己跟上；"
+                  "若你根本没装 TRAE 桌面端，则需在 TRAE 网页端登录后抓 Authorization 跑 init")
         return cfg
     cfg = dict(cfg)
     cfg["access_token"] = best
@@ -152,9 +207,10 @@ def auth_report(cfg):
     import credential_core as cc
     tok = (cfg.get("access_token") or "").strip()
     exp = cc.expiry_ms(token=tok)
-    cc.auth_line("TRAE", source="trae_config.json(Cloud-IDE-JWT 14天)",
+    cc.auth_line("TRAE", source="trae_config.json(Cloud-IDE-JWT 14天，跟着桌面端活票走)",
                  expires_at=exp, refreshable=False,
-                 note="本机无 refresh_token → 到期前在 TRAE 客户端重登一次，脚本会自动跟上这份新 token")
+                 note="桌面端 storage.json 里的活票只读跟用；store 那支 refreshToken 与"
+                      "用户 IDE 共用且单次轮换，本脚本不代刷（刷了会把客户端登录态作废）")
     return exp
 
 

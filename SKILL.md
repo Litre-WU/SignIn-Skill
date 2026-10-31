@@ -2,31 +2,33 @@
 name: qiandao-la
 slug: signin-skill
 displayName: 签到啦
-description: 一站式签到/领券综合工具，整合26个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到（互动中心天天抽奖因京东账号/会话级 403 风控已移出总控，仅留复测入口）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分（免抓包，直读桌面端 lobsterai.sqlite 的 JWT 凭证 + /api/auth/refresh 离线续期）、MiniMax Code七日签到积分（免抓包，直读桌面端 auth.json 活凭证 + refresh_token 离线续期）、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）、滴滴出行自动领券+福利中心签到（打车/花小猪/加油/货运，H5 登录票据鉴权+wsgsig 签名）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、"滴滴领券"、"打车领券"、"滴滴签到"、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
+description: 一站式签到/领券综合工具，整合27个已抓包验证的自动化入口：美团惠省小程序首页红包墙每日领券+营销页红包+分销会场券包、南航（中国南方航空小程序）双链路签到+签到抽奖、魔搭 ModelScope 每日魔粒、WorkBuddy 积分签到+派猫猫旅行、办公小浣熊（商汤 xiaohuanxiong）每日积分、Loomy（讯飞）每日积分、天翼189云盘每日签到领空间、京东京豆每日签到（互动中心天天抽奖因京东账号/会话级 403 风控已移出总控，仅留复测入口）、阿里云盘每日签到（浏览器已登录即全自动，脚本直接读本机 Local Storage，无需抓包）、美团答题领现金、小米商城米金+有品红包签到、千问办公每日100积分、华为码道每日签到1000积分（免抓包，直接复用 CodeArts Agent 桌面端登录态的 IAM 临时 AK/SK 签名）、Qoder CN 每日100 Credits（免抓包，桌面端凭证自解密）、字节TRAE每日签到积分、有道LobsterAI每日签到积分（免抓包，直读桌面端 lobsterai.sqlite 的 JWT 凭证 + /api/auth/refresh 离线续期）、MiniMax Code七日签到积分（免抓包，直读桌面端 auth.json 活凭证 + refresh_token 离线续期）、WorkBuddy 国际版每日签到积分（www.workbuddy.ai，需国际版独立账号）、Qoder 国际版每日 100 Credits（并入 Qoder 脚本双区串行）、ZCode 智谱每日额度（领取需阿里云验证码）、滴滴出行自动领券+福利中心签到（打车/花小猪/加油/货运，H5 登录票据鉴权+wsgsig 签名）。纯接口自动化（非 UI 点击），支持幂等与定时任务。当用户要求"签到"、"领券"、"打卡"、"每天签到"、"美团领券"、"美团红包墙"、"惠省领券"、"南航签到"、"魔搭魔粒"、"WorkBuddy积分"、"小浣熊积分"、"Loomy积分"、"天翼云盘"、"京东京豆"、"京东抽奖"、"阿里云盘"、"阿里网盘"、美团答题"、"米金"、"有品签到"、"小米签到"、"千问办公"、"华为码道"、"码道"、"CodeArts"、"Qoder"、"Qoder CN"、"领积分"、"领Credits"、"TRAE签到"、"LobsterAI签到"、"MiniMax签到"、"WorkBuddy国际版"、"Qoder国际版"、"ZCode"、"滴滴领券"、"打车领券"、"滴滴签到"、"腾势签到"、"DENZA签到"、"比亚迪签到"、猛士汽车/MENGSHI 签到、或提及这些平台时使用。凭证更新优先走 **Reqable MCP 自动抓包**（agent 过滤记录 + `reqable_hunt.py harvest` 落地，用户只在客户端做一次动作即可，不用复制请求文本），MCP 不可用时才手工抓 1 条请求。方法见 SKILL.md。
 ---
 
 # 签到啦 · 一键签到/领券合集
 
-整合二十六个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 18 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
+整合二十七个**已抓包验证**的自动化入口（脚本按「同一家企业产品合并」原则收敛为 20 个平台组，与 README 平台表口径一致），全部纯接口实现，自带幂等（当天不重复执行）与状态文件。各平台按需运行对应脚本，命令见「四、导出脚本自用」。
 
 | 平台 | 脚本 | 作用 | 依赖 |
 |---|---|---|---|
-| 南航（中国南方航空小程序） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程 + 签到抽奖机会检测（抽奖消耗半自动） | Python 标准库（H5 重登需 Playwright） |
+| 南航（中国南方航空小程序，**★2026-10-28 起抽奖已移出总控：总控传 `signin --no-draw`**） | `scripts/csair_signin.py` | 发现新境签到 + 营销签到领里程；抽奖消耗需小程序 sessionId，已从每日总控摘掉（`--no-draw` 跳过检测且把「sessionId 已失效」降级为提示退 0），要抽卡手动跑 `draw` | Python 标准库（H5 重登需 Playwright） |
 | **美团系（4 项，总控链内串行）** | `scripts/mt_api_coupon.py`<br>`scripts/mt_gundam_coupon.py`<br>`scripts/mt_union_coupon.py`<br>`scripts/mt_answer.py` | ①红包墙每日领券+营销页红包（rightCode 级幂等）②福利社跨券墙+限时抢+天降掉券 ③分销会场券包+内嵌跨券墙（单日约 ¥180）④答题七日签到+每日任务现金（WebSocket 重放） | Python + Node（mtgsig/H5 签名沙箱） |
 | 魔搭（ModelScope） | `scripts/ms_magicube.py` | 每日登录魔粒 +250 + 点赞刷分 +40（会话副作用 + star/unstar 循环） | Python 标准库 |
 | **WorkBuddy系（4 项，链内串行）** | `scripts/wb_score.py`<br>`scripts/wb_growth.py`<br>`scripts/workbuddy_intl_credits.py`<br>`scripts/wb_balance.py` | ①Buddy 加油站签到 +100/天 + 派猫猫旅行闭环（先领后派，5~10/天）②成长中心 6 项奖励补齐（盲盒/连登兑换/断登补签/接任务/领任务奖，全幂等）③**国际版**（www.workbuddy.ai）每日签到积分：★路径**不带 `/v2`**、**不带**设备指纹头；★判定只看响应体 `code`（重复领取 HTTP 400 + code 10001）；★★**需国际版独立账号**（国内 .cn 态在 .ai 域被 APISIX 网关 401，网关认 session cookie 不认 Bearer）；未配置时 `[skip]` 退 0 ④★**账户真实积分**（2026-10-23 逆向，与客户端用量页同一个数）：`POST /billing/meter/get-user-resource-summary`（**不带 /v2**）+ `X-Device-Token`，缺该头 → `403 code=10085 请求不合法`；令牌由客户端自带 N-API 原生桥 `app.asar.unpacked/native/turing-sdk`（腾讯 T-Sec TuringShield）现取，`channelId` 读 `app.asar.unpacked/cli/product.json` 的 `config.turingSdk`（本机 109144）；★★**令牌只在取它的那个进程活着时有效**，跨进程复用必 10085 → 故取令牌与发请求都在同一个 node 进程里（`wb_balance_query.js`，Bearer 走 stdin 不入 argv）。⚠️ 判读禁忌：`wb_score.py` 的 `total_credits` 是**加油站本期累计签到积分**（恒＝连签天数×daily_credit），**不是余额**，别再写成「余额」 | ①②底层调 totorosir-workbuddy-score skill；③标准库；④标准库 + node（客户端自带） |
 | 办公小浣熊（商汤 xiaohuanxiong） | `scripts/xhx_office_points.py` | 每日积分确认（免费版每日送 300，会话活跃自动入账；refresh_token 自动续 accessToken） | Python 标准库 |
 | **讯飞Loomy（2 项，链内串行）** | `scripts/loomy_points.py`<br>`scripts/loomy_desktop_tasks.py` | ①Web 端每日积分确认（活跃自动入账，纯 cookie 鉴权）②桌面端新手任务 8 项共 10000 分（Electron 客户端专属，自动读本机登录态；已纳入总控每日检测，满额零副作用跳过） | Python 标准库 |
 | 天翼云盘（cloud.189.cn） | `scripts/c189_signin.py` | 每日个人签到领随机空间（SSON 登录 cookie → getSessionForPC 换 sessionKey → `/mkt/userSign.action`；幂等，isSign=true 时零副作用） | Python 标准库 |
-| 京东京豆 | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）。★★**互动中心天天抽奖已于 2026-10-17 移出总控**（那组 functionId 是账号/会话级 403 风控，越打越宽；`interact`/`interact_status` 子命令仍保留在脚本里，仅供封锁解除后复测，见 §9b 与 `jd_interact_inpage.py`） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
+| 京东京豆（**★2026-10-28 整条链已移出总控，只能手动跑**） | `scripts/jd_web_signin.py` | 每日京豆签到（Web 端 `pc_interact_sign_execute`，+N 京豆/日，连签有加成）。★★**互动中心天天抽奖已于 2026-10-17 移出总控**（那组 functionId 是账号/会话级 403 风控，越打越宽；`interact`/`interact_status` 子命令仍保留在脚本里，仅供封锁解除后复测，见 §9b 与 `jd_interact_inpage.py`） | Python + Node（京东官方 js_security_v3 签名器沙箱） |
 | **阿里系（3 项，总控链内串行）** | `scripts/aliyun_signin.py`<br>`scripts/qwenwork_credits.py`<br>`scripts/qoder_credits.py` | ①阿里云盘每日签到：★凭证在浏览器 **Local Storage**（Cookies 库被独占锁，但 leveldb 可读）；★按**值**搜索 `"refresh_token":"<32位hex>"` 再扩 JSON；refresh 不使旧 token 失效→不踢浏览器 ②千问办公每日 100 积分：★凭证在桌面端 `auth-v2.dat`（Chromium **v10 加密信封**，DPAPI+AES-GCM，与浏览器 cookie 同一套解密链），脚本实时解密读取，**免抓包、免登录维持**；免费版积分当日有效 ③Qoder CN 每日 100 Credits（30 天有效）：★凭证在桌面端 `auth.v1.dat`（**同一套 v10 解密链**）；campaigns 动态发现 + claim，服务端幂等 | Python 标准库（+cryptography 解 v10 信封） |
 | **小米系（2 项，链内串行）** | `scripts/xm_mijin.py`<br>`scripts/yp_rpsign.py` | ①小米商城米金签到 +15/日 + 浏览任务各 +5（venue/page v1 + infinite do/done；幂等 code:200001）②有品每日红包签到（全年活动，实测 0.24 元/日，连签 7 天第 7 天 5 元；先 getActInfo 判状态再点击） | Python 标准库 |
 | 华为码道（CodeArts Doer） | `scripts/hw_codearts.py`<br>`scripts/hw_codearts_refresh.py` | 每日签到领 **1000 积分**（30 天有效）。★**免抓包**：直接解密 CodeArts Agent 桌面端 `state.vscdb` 里的 IAM 临时 AK/SK，按 `SDK-HMAC-SHA256` 签名打 `snap-access…/v1/ops/{delivery,claim,confirm}`（`channel=IDE`）；★★**账号状态保持（2026-10-16）**：临时 AK/SK（约 2h 寿命）过期时，`hw_codearts_refresh.py` 用 session 里的 `refresh_token`（约 28 天）+ PKCE codeVerifier + DPoP 私钥签 ES256 proof 直接向 STS 离线换新凭证（参考 Our Free Model `src/oauth.ts` 逆向）——**无需开着客户端**；刷出的新凭证缓存 2h 内复用（refresh_token 单次轮换，一天多跑只烧一次）；refresh_token 也终态失效才提示重开客户端登录。三步链路：`delivery` 查 `claimable` → `claim`（idempotentKey `claim_<id>_<ms>`）→ `confirm`（积分入账）。幂等：已领时 `claimable=false` + `status=CONFIRMED`，硬提交返 `code:40001 尚未到达权益刷新时间` | Python 标准库 +cryptography（复用 `browser_cookies` 的 v10/DPAPI 解密链） |
-| 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 |
+| 字节 TRAE | `scripts/trae_credits.py` | 每日签到积分（实测单日 150）。`Cloud-IDE-JWT` 鉴权 + 设备身份按 uid 确定性派生（15 位数字/UUIDv4/64hex，SHA256 种子流）。★★免抓包：config 过期时自动改读桌面端 `storage.json` 的活票（字节 `byteCrypto` 信封，解法在 `credential_core`）。★claim 幂等但响应与成功**不可区分** → 必须先查 status.checked_in，领取后回查 status 取积分。错误冷却：1005 套餐限 / 9074 繁忙 / 401 失效 | Python 标准库 + cryptography（仅解桌面端信封时用） |
 | 有道 LobsterAI | `scripts/lobsterai_credits.py` | 每日签到积分（实测「每日登录奖励」100/天）。三步：slot（placement=desktop_sidebar 固定参数）→ context（claimedToday + actions 双预检）→ check_in（客户端 uuid4 幂等键）。纯 Bearer 无签名。余额用 profile-summary（quota 端点不含活动积分）。★★**2026-10-18 起首选「免抓包」链路**：直接只读桌面端 `%APPDATA%/LobsterAI/lobsterai.sqlite` 的 `kv` 表拿 `auth_tokens{accessToken,refreshToken}` + `keyfrom.attribution.v1` + `auth_user` + `installation_uuid`（accessToken 是 **JWT，exp 约 30 天**）；配 `/api/auth/refresh`（★匿名头、无 Authorization）离线续期，`REFRESH_LEAD=1h` 内才动手、同一支只试一次、终态码 `40100/40101/token rejected` 不重试、新凭证只写 `lobsterai_live_cache.json` **不回写 sqlite**。`--auth auto\|bearer\|cookie` | Python 标准库 |
 | MiniMax Code | `scripts/minimax_credits.py` | 七日签到积分（实测单日 400/800 档）。`timezone_id`（IANA）必填；业务码在 `base_resp.status_code`；幂等判据 `claim_result`（1 领 / 2 已领）；★`points` 为总数不相加 `bonus_points`；今日已领判据 `is_today && status==3`。★★**已免抓包（2026-10-17 保活改造）**：直读桌面端 `~/.minimax/auth/prod/cn/mcode-public/auth.json` 的活 token，过期再用 `refresh_token` 离线刷（见 §19） | Python 标准库 |
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（`zcode.z.ai`）。★查额度前**必须先补 `event/report` 激活**（app_launch + app_daily_active），否则 preview 空列表 → **稳定误报「今日已领」**；今日已领判据 = 可领 plan 数为 0。★`code 1003`=已领取（**属成功**）、`3007`=captcha 无效。★★**领取端点强制阿里云验证码**（不带/非法都 400/3007，且校验前置于 plan 校验）→ 无 captcha 时提示人工领取，不算失败 | Python 标准库 |
 | 滴滴出行 | `scripts/didi_coupon.py` | 打车/花小猪/加油/货运 4 线自动领券 + 福利中心每日签到领福利金、气泡逐个点、瓜瓜乐报名/领奖。★凭证是 **H5 登录票据 token**（`sync` 命令从本机浏览器登录态自动取，CDP+leveldb 双通道；或 F12 手取 localStorage，约 7-30 天有效）；`ut.xiaojukeji.com`/`api.didi.cn` 接口带 **wsgsig 签名**（md5 盐 `R4doMFFeMNlliIWMq` + ts/v/os/av/kv/vl/sig 七元组 + 4 字节掩码 XOR + base64）；`union.didi.cn` 领券无签名。同企合并为单链 | Python 标准库 |
+| 腾势 DENZA（比亚迪汽车小程序，**★2026-10-28 已移出总控，只能手动跑**） | `scripts/byd_signin.py` | 每日签到 + 任务中心自动领积分（反编译包 `<小程序appid>`/213 逆向）。★**两套场景**：unifie 网关(`common-mina-gateway.bydauto.com/denza`) 走签到家族 `signIn`/`getSignCalendar`/`getCardList`；**rights 场景**(`service20.denzacloud.com/?s=ForCommonRightsSrv.forward`) 走任务系统 `task/user/tasks` + `receiveAward`（2026-10-27 修正：旧记 `forwardInformationFlow` 是 `apiHostCommunity`，任务页实际用 `apiHostCommonRights`，打错 host 恒返 `ret=401`）。AES-128-CBC-PKCS7 直接密钥（非口令派生）、请求头 `Checksum=sha256(appSecret+nonce+curtime)`。★**凭证=小程序 session_id**（真机 Reqable 抓 `/?service=mina.decryptCode` 响应，**用 rights 场景密钥本地解密即得**，写 `byd_accounts/<名字>.json`），非浏览器 cookie、不依赖 0-sync。★`expired_timestamp`＝抓包时刻+7200（**session 只有 2 小时寿命**），无人值守次日必失效；未配置账号时 `[skip]` 退 0 | Python 标准库 |
+| 猛士汽车（东风猛士微信小程序，**★2026-10-30 已移出总控，只能手动跑**） | `scripts/mengshi_signin.py` | 每日签到 + 任务领积分（反编译包 <小程序appid>/v247 逆向）。CryptoJS AES-**ECB**(PKCS7),RSA-PKCS1v1.5 签名，签名服务 gateway.m-hero.com/v2/sign/get + VIP API c-access.m-hero.com；actionId=rwqd = 每日签到（finish 接口）。★**凭证=cookie/token**（小程序登录后响应/Cookie 中获取，需用户抓包提供 fresh session），非浏览器 cookie → 不依赖 0-sync；未配置 `[skip]` 退 0。**移出原因=凭证从未落地**（本机无 `mengshi_config.json`、无 `MENGSHI_COOKIE`，每日实跑固定 `No account loaded` 零收益），配好抓包凭证并确认 `auto` 真签到成功后可放回总控 | Python 标准库 |
 | 京东互动中心（页内复测工具，**不进总控**） | `scripts/jd_interact_inpage.py` | ★互动中心那组 functionId（`assign_query`/`reward_center`/`assign_execute`）是**账号/会话级 403 风控**，urllib、headless、以及**真浏览器里页面自己发的请求**都会 403（详见 §14）。本工具用页面自己的 `PSign`/`getJsToken`/`SHA256` 复刻 `requestColorEncrypto`，**只用于封锁解除后复测**；`check` 只读自检、`auto` 领机会并抽。★会主动拒绝无头 9222（无头结论是假的），永不自启浏览器、永不回收用户实例 | Python 标准库 + websocket-client |
 | 通用浏览器 Cookie 提取 | `scripts/browser_cookies.py` | 从本机 Chromium/Thorium 的 Cookies 库按域取**已解密** cookie（绕独占锁直读 → TEMP 整库副本 → CDP 9222 三级回退）。`extract()` 给 `{name: value}`，`extract_full()` 额外保留 `host_key/path/secure`（往浏览器**注入**登录态必须用它）。京东/阿里云盘/千问办公/Qoder/掘金救援共用这套解密链 | Python 标准库 +cryptography |
 
@@ -337,18 +339,21 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 - ★★**窗口切换边界（2026-10-15 修的静默漏领坑）**：总控 10:00 跑与窗口开场几乎重合，此刻列表里可能**同时存在刚过期的旧一期（已 CLAIMED）与新一期**，若按返回顺序取首个匹配就会误判「今日已领」而漏领整天。脚本已改为**优先挑「窗口覆盖当前时刻」的那期**，选中的若仍是刚过期一期则等 20s 重取一次。故排「阿里系」链**最后**（链内串行天然延迟，双重保险）
 - 断线症状：`auth.v1.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端
 
-### 17) 字节 TRAE（2026-10-16 建成）
+### 17) 字节 TRAE（2026-10-16 建成，★★2026-10-31 起免抓包）
 
-协议来自 GitHub 开源项目 **Ebony-Vinyl/dsh-our-free-model**（`vendor/channel-pack/src/trae-credits.ts`，其重构自 trae-mate 参考实现）的分析移植。电脑打开 trae.ai 登录后，用 Reqable/mitmproxy 抓任意一条 `api.trae.cn` 请求发我：
+协议来自 GitHub 开源项目 **Ebony-Vinyl/dsh-our-free-model**（`vendor/channel-pack/src/trae-credits.ts`，其重构自 trae-mate 参考实现）的分析移植。★★**现在优先读桌面端本地凭证，不用抓包**：本机装了并登录过 TRAE SOLO CN 桌面端即可，脚本只读它的 `storage.json`（抓 `Authorization: Cloud-IDE-JWT <token>` 只剩兜底）。
 
-- `Authorization` 头 = `Cloud-IDE-JWT <access_token>`（★不是 Bearer）
-- `X-Uid` 头 = 账号 user_id
+- ★**桌面端凭证位置**（2026-10-31 拆 `Trae CN/resources/app/out/main.js` 核对）：`%APPDATA%\Trae CN\User\globalStorage\storage.json` 里键 `iCubeAuthInfo://<authProviderId>`（本机 = `icube.cloudide`）的值，明文 = `{token(14天), refreshToken(约180天), expiredAt, refreshExpiredAt, userId, host, account}`；设备 EC 私钥在同前缀键 `iCubeAuthInfo://icube-dc:<deviceId>`（`{privateKeyPEM, publicKeyPEM}`，P-256）
+- ★**信封是字节自研 `byteCrypto`，不是 Chromium v10/DPAPI**：`blob = hdr(6)=116 99 5 16 0 0 || keyMat(32) || AES-128-CBC( sha512(明文)(64) || 明文 )`，aesKey/iv 全由 keyMat 派生（`n = sha512(keyMat)||SALT(64)` → `n[0:64]=sha512(n)` 取前 16/次 16）；`SALT` 是包里两张 64 字节表异或，**表名由压缩器赋值、客户端一升级就改名** → 实现按长度捞表两两试、用 sha512 前缀当 oracle。唯一实现：`credential_core.byte_crypto_salts/byte_crypto_open/byte_crypto_json`
+- ★**登录链路**（桌面端日志原文可见）：浏览器 `https://www.trae.cn/authorization?...&auth_callback_url=http://127.0.0.1:<port>/authorize&code_challenge_method=S256`（PKCE，浏览器账号是长期的那一层）→ 本地回调拿 AuthCode → `POST /trae/api/v3/oauth/ExchangeToken` → 写本地凭证；**客户端每次启动都用 `exchangeTokenByRefreshToken` 自动续票**（实测 12:12 那次 `response success`），所以只要 14 天内开过一次 TRAE，读到的永远是活票
+- ★**绝不代客户端刷 refreshToken**：store 那支与用户 IDE 共用同一支且**单次轮换**（`credential_core` 铁律 2），我们 ExchangeToken 一次就把用户登录态作废 → 本脚本只读跟用，`refreshable=False` 是这个意思，不是"续不了"
+- 手工兜底：`Authorization` 头 = `Cloud-IDE-JWT <access_token>`（★不是 Bearer）、`X-Uid` 头 = 账号 user_id → `trae_credits.py init --token <JWT> --uid <uid>`
 
 - ★接口：`POST /trae/api/v2/ug/checkin_credits/status`（body `{}`，返 `checked_in/credits/enable`）、`POST /trae/api/v2/ug/checkin_credits/claim`（body `{}`）、`POST /trae/api/v2/pay/ide_user_ent_usage`（余额，body `{"require_usage":true,"req_source":2}`）
 - ★★**claim 幂等但不可区分**：已签到账号重复领取同样返回 `{code:0,message:"success"}`，与真正成功无法分辨 → 脚本**必须先查 status.checked_in**；且 claim 响应**不含积分数**，领取成功后**回查 status.credits**（实测单日 150）
 - ★设备身份按 uid **确定性派生**（对齐 trae-mate `device_map.rs`）：15 位数字 device_id / UUIDv4 market_user_id / 64hex session_id，算法为 SHA256(`salt:uid` + counterBE32) 种子流 → 多账号各自独立设备配额，脚本已完整移植
 - ★错误冷却（对齐 trae-mate `cooldown.rs`）：`code 1005`=套餐不含签到（12h）、`code 9074`=签到人数过多（300s）、HTTP 401=会话失效（需重新登录）、429=软限流（60s）
-- 断线症状：401 → 重新登录 TRAE 桌面端重新抓包
+- 断线症状：401 或 `[auto] 状态查询失败` → 先看 `[保活][TRAE]` 有没有跟上桌面端活票；没跟上就是**桌面端没在跑/没装/版本改了信封表**，正确动作是「打开一次 TRAE 客户端」（它自己续票），★不要再让用户抓包或重登（2026-10-31 之前的旧措辞）
 
 ### 18) 有道 LobsterAI（2026-10-16 建成，★★2026-10-18 起免抓包）
 
@@ -476,6 +481,47 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 ---
 
+### 24) 腾势 DENZA（比亚迪汽车小程序，2026-10-26 建成）
+逆向自反编译包 `<小程序appid>` / 版本 213（`app-service.compiled.js` 内 `utils/constant/constant-obfuscated.js` 多环境分支，release=M）。
+
+- **两套请求场景**（均由反编译 + 抓包逐字段验证）：
+  - **场景 A · unifie（签到家族）**：网关 `https://common-mina-gateway.bydauto.com/denza`，路径 `/commonUc/<serviceDir>`；AES-128-CBC-PKCS7 直接密钥（非口令派生）`unifie.aes_key=3x!5Q#K1NQ@6X~FC` / `unifie.aes_iv=bi@td8Rp%jG^fC!D`；签名头 `Appkey=common_mina` + `Checksum=sha256(appSecret+nonce+curtime)`（`appSecret=yD9%R7wnjzEn#CCS`）；请求体 `{session_id, check_login, ...biz}`（**不带** app_client/app_version）。
+  - **场景 B · rights（任务系统）**：网关 `https://service20.denzacloud.com/?s=ForCommonRightsSrv.forward` + `&serviceDir=task/user/tasks`（或 `receiveAward`）；密钥 `aes_key=QR6?sgk2`%Nc<.=Z` / `aes_iv=hS0W7KlTQYDFjGCM`；签名头 `Appkey=denza_mina_wx`（`appSecret=qpc1sn~>0hr_4<$，无 Content-Type 头）；请求体 `{app_client:"mina", app_version:230, session_id, ...biz}`（myRequest 内部经 `n()` 注入 app_client/app_version）。
+    ★★**2026-10-27 网关更正**：反编译 `page/me/pages/integralTask/integralTask.js` 里 `getTasks`/`toReceiveAward` 用的是 `p + API.me_userTask`，而 `p = globalData.apiHostCommonRights = "?s=ForCommonRightsSrv.forward"`；`apiHostCommunity`(`?s=ForInterfaceMina.forwardInformationFlow`) 只是同一个 domain 上的**另一个**转发器。打后者时 `task/user/tasks` 恒返业务 `ret=401`「数据请求失败（401）」——与 session 新旧、body 字段（有无 app_client/app_version/check_login）、base64 是否加 JSON 引号、UA/Referer/WAF cookie **全都无关**（2026-10-27 逐一隔离验证过 11 种组合），别再按「session 校验更严」判失效。
+  - 两场景响应体均为 AES 密文，用各自场景密钥解密得 `{ret,data,msg}`；签到 ret 为整数、任务 ret 为字符串，判读时统一转 str。
+- **接口**：签到 `signIn`、签到日历 `getSignCalendar`、签到卡片 `getCardList`（unifie 场景）；任务列表 `task/user/tasks`（`{reward:"integral", data_use_for:"mina"}`）、领奖 `task/user/receiveAward`（`{reward:"integral", scene_flag:<flag>}`）（rights 场景）；★**任务列表真实结构**：`data` 下 **值为数组**的键才是任务组（`full`=全品牌积分好礼、`sub`=腾势专属积分好礼），`typeName[键]` 只是组显示名、`typeSort` 也是数组但装排序项（无 `scene_flag`，必须排除）；每项 `status`（2/3=可领、1=需手动、4=已完成已领取）、`scene_flag` 为领奖 key、名称字段是 `task_name`（不是 `name`/`title`）。
+- **凭证（session_id）**：写入 `byd_accounts/<名字>.json`（单账号退回 `byd_config.json`），由 `init --session <sid>` 落盘。★sid 可从 `mina.decryptCode` **响应体**用 rights 场景钥 `aes_decrypt` 直接解出明文（不必在代理里看明文），也可从任意业务**请求体**解出。
+- ★★**账号保活机制（2026-10-27 逆向定论，推翻「任务服务对 session 校验更严」旧假设）**：
+  - **sid 寿命只有约 2 小时**：真实抓包 `mina.decryptCode` 响应 Curtime=1793068137 vs `expired_timestamp`=1793075338 → 差值 7201s。历史上任务接口 `ret=401` 的全部根因就是拿的是几天前的死 sid——网关更正（`ForCommonRightsSrv.forward`）与新鲜 sid 两者叠加后，任务列表 9 条全出、领取正常，401 问题彻底了结。
+  - **客户端保活链**（`appservice.app.compiled.js` L6077/L6127/L6163 + `platform/mine/app-service.js` L77832）：`request()` 里 `wx.getStorageSync("session").expired_timestamp > now+300` 才复用存储 sid，否则走 `getSession()`；`getSession` 先 `wx.checkSession`，通过再 `POST /?service=mina.checkSession {session_id}`——**该接口只校验、不下发新 sid 也不延长过期**；ret=200 继续用，ret=21017/其他 → `removeStorageSync("session")` + 重登；重登 = `wx.login()` 取 code → `POST /?service=mina.decryptCode {aesEncrypt({code, check_login:0})}` → ret=200 返回 `{openid, unionid, session_id, hashId, expired_timestamp}` 写回 storage。App 级 `onShow`：`expired_timestamp - Date.now() < 6e5`（10 分钟）即 `exitLogin()` + `weChatLoadSession()` 自动重登。
+  - **★无服务端 refresh 通道**：不存在任何可离线调用的续期接口，续命必须进微信运行时 `wx.login()` → **脚本无法自主保活**。对照：PC 微信小程序 storage（`applet/local/<小程序appid>/`）为 MMKV 加密（MMVQ 头），本机直读 sid 不可行，勿再尝试。
+  - **实操保活 = Reqable 收割**（`reqable_hunt.py` 已注册 `denza`，2026-10-27 端到端实测 rc=0）：`_denza_extract` 用 NORMAL 场景密钥解 `mina.decryptCode` 响应体取 `session_id/expired_timestamp` → 自动备份并写 `byd_config.json` → land 到 `byd_signin.py init`。每日运维口径：**总控 10:00 跑之前 1 小时内**用 PC 微信打开「腾势」小程序（`onShow`/请求拦截会自动完成 decryptCode 换新 sid），随后 `capture_live_filter{keyword:"mina.decryptCode"}` → `capture_live_get_by_id` 存 rec.json → `python reqable_hunt.py harvest --file rec.json --apply`（harvest 按 REGISTRY 自动识别平台，无 --id 参数），再放行 `[24-byd]`。
+  - Checksum 公式已对真实抓包逐字节验证：`sha256(appSecret+nonce+curtime).lower()`（样例 `4ce693f9…96e2ecb` 完全一致）。
+- ⚠**Web 官网（tengshiauto.com）不能当保活通道（2026-10-27 勘察定论，勿再探）**：
+  - Web 是**第三套体系**（网关 `site-api.byd.com/denza-api/api/*`），鉴权=硬编码 HMAC 反重放签名（`utils.js` 常量 sgk=`4a3688a5gcd88g443fga6b7fcb`、sk=`fcb8f0ddg5c92g45b7g9d33g04cc55d3be3b`；`signature=HmacSHA256(f"{sgk}\n{sk}\n{ts}", sk).hex` 已对真实抓包 login/checkUserStatus 两条逐字节验证），`token` 头**恒为空串**——登录态由服务端按 `(clientId=登录IP, userId)` 绑定会话维护，与小程序 sid、unifie 网关完全不通，Web 登录**换不出**小程序 `session_id`。
+  - 页面「已登录」是 **pinia persist 的 localStorage 缓存**假象（`isLoggedIn` getter 只查本地 `h5TokenInfo.encryToken` 存在性）；实测 11:10 手机验证码登录、12:20 回放 `checkUserStatus` 已返 `code:-1 用户未登录` → Web 服务端会话 TTL 同样 ≤1h 量级，**并不比小程序长寿**。
+  - 续登唯一入口 `POST /denza-api/api/login {mobile, verificationCode}`＝**短信验证码**，无法自动化；且 `/denza-api` 全部 27 个接口清单（login/logout/getPersonalInfo/wish/order/appointment/dealer…）里**没有任何积分/签到/任务接口**——Web 既不能保活也不能替代签到。保活方案维持上面的 Reqable 收割小程序 sid 不变。
+- ⚠**比亚迪超级 App（superApp.apk / `com.byd.aeri`）不能作离线保活通道（2026-10-27 APK 逆向定论，勿再解包）**：
+  - 用户给的 APK（333MB，versionCode 见 Manifest，包名 `com.byd.aeri`＝比亚迪汽车/腾势/海洋/方程豹共用「超级 App」）**被梆腾 bangcle 加壳**：`classes.dex`(287MB) 只是壳 loader，真实业务 dex 运行时才解密；加固痕迹 `libDexHelper.so`+`bangcle_sdk_safekb/safetx_licence`+`libSafeKBCrypter.so`/`libEncryptorP.so`/`libdicrypto.so`。strings 层能看到的 `Sign.signIn`/`Sign.getSignCalendar`/`DenzaApp.Share.sharePoints`/`Apporder.getUserIntegralNew` 等**只是服务目录常量**（`?service=ForInterfaceApp.forward&serverFlag=integralMall&serviceDir=Sign.signIn`），是**第四套 App 网关**（`ForInterfaceApp.forward*`，与小程序 unifie/rights、Web denza-api 全不同），请求经 `com.byd.base.network.encrypt.BydServiceInterceptor` + native 层加密/加签，**离线纯 Python 复现不可行**（签名逻辑在梆腾 so 内）。
+  - App 内确有一套 OAuth 刷新体系（`com.byd.base.network.oauth.*`：`TokenRepoImpl.refreshToken`/`RemoteTokenRepo`/`AppTokenRefresher`/`splash LaunchManager.autoLogin`，日志串 `refreshAccessToken onSuccess`/`refreshToken is expired`），**但**：①唯一静态可得的 OAuth 端点是 `/oauth/enc/token?scope=read&grant_type=client_credentials`（**client_credentials=应用级 token，非用户续期**）；②用户级 `refresh_token` 授权走的是加壳后 native `BydService`（Retrofit 接口名在真实 dex 里，strings 层拿不到 host/path/签名头）；③App 账号体系与小程序 `mina.decryptCode` 的 `session_id` 不互通（同 DENZA 品牌但网关/凭证两套）。→ **既复现不了 App 请求，也换不出小程序 sid**。
+  - 结论：**三端（小程序/Web/App）全部勘察完毕**，积分签到只在小程序 rights 网关，唯一保活=总控前 1h 内 PC 微信打开腾势小程序 + Reqable 收割 sid。App 若将来要做，需 Frida 脱壳(bangcle 需过 DEX 运行时解密+签名 so hook)成本极高，不划算。
+- **命令**：`init --session <sid> [--acct 名字]` 写配置；`status` 查积分/签到日历+任务概览；`signin` 每日签到；`tasks` 领取可领任务奖励；`auto` = 签到+领任务（挂定时任务用）；`probe` 打印两套场景请求信封+原始/解密响应（调试）。
+- ★**`ret=401`「数据请求失败（401）」在本平台两个真实成因**：①网关选错（见上 2026-10-27 更正，须走 `ForCommonRightsSrv.forward`）；②**sid 过期（寿命仅约 2h，见下「账号保活机制」）**。签到能过而任务 401 时先核对 `s=` 参数；若网关正确仍 401，按保活流程重收割 sid 即可，不必怀疑脚本。unifie 场景的失效特征是 `ret=21017`/`10020`（`session_id不合法`）。
+- 非浏览器 cookie，不依赖 0-sync（凭证同步）；未配置任何 byd 账号时 `auto/status/tasks` 打印 `[skip]` 并退 0，不误报失效。
+
+---
+
+### 25) 猛士汽车（MENGSHI / Dongfeng Warrior，2026-10-26 建成；★2026-10-30 起已移出每日总控，仅手动入口）
+逆向自反编译包 `<小程序appid>` / v247（`app-service.compiled.js` 3.15MB）。
+
+- **请求信封**：CryptoJS AES-ECB(PKCS7) 直接密钥（非 CBC，与代码中的 CBC label 不同）`AESKey.production="SNJmue8vh2X2dyhR"`；RSA-PKCS1v1.5 公钥加密（`store/config.js production RSAKey`）；签名服务 `POST gateway.m-hero.com/v2/sign/get {"aesKey":rsa(aes_key), platform:"miniProgram", url}` → `sign`；真实 API 调用 `POST c-access.m-hero.com` (vip endpoints)，body `{req: aes(biz+"&ts"), sign}`，headers `sign-encrypt=rsa(plain_sign)`。
+- **每日签到**：actionId=`rwqd`，任务/签到统一走 `/v1/vip/task/finish/rwqd`；状态查询 `/v2/app/vip/account/getSignInfo`；任务列表 `/v1/app/vip/taskClass/list` / `/v1/app/vip/task/details/list/<time>`。
+- **凭证=cookie/token**：小程序登录后响应或 Cookie 中获取字符串值；需用户抓包提供 fresh session（当前仅支持 cookie 模式，登录态有效期未定但需定期换新）；无有效 cookie 时返回 `code:-10001` "invalid parameter"。
+- **命令**：`auto` 执行签到+查状态；`status` 查积分/签到信息；写 `mengshi_config.json {"cookie":"..."}` 或环境变量 `MENGSHI_COOKIE`；未配置 `[skip]` 退 0。★2026-10-30 起这两条命令**只是手动入口**（已从 `run_all.py` 总控注释掉）。
+- 非浏览器 cookie → 不依赖 0-sync；未配置时自动跳过，不误报失效。
+
+---
+
 ## 二、我来自动完成
 
 拿到凭证后（来源不管是 §〇 的 Reqable 自动抓包，还是 §一 的手工粘贴），我会：
@@ -486,6 +532,13 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 脚本自带幂等：当天已完成会自动跳过，删除对应 `*_state.json` 可重跑。
 
+
+> **★2026-10-28 京东 + 腾势 + 南航抽奖移出总控（用户明示）**：
+> - **`14-jd` 整条链（东东农场→京豆签到）已注释**。定性证据：cookie 是**磁盘直读、`ts` 距今 0.9 分钟**的新鲜值、`manual=False`，服务端仍回 `code=3 请先登录`；鉴别接口 `GET https://me-api.jd.com/user_new/info/GetJDUserInfoUnion`（Referer `home.jd.com`，不吃 h5st）回 `{"msg":"not login","retcode":"1001"}` ⇒ **会话被服务端整体作废**，不是快照陈旧、不是缺 cookie、也不是 h5st 风控。只能人工重登 `passport.jd.com/new/login.aspx`；农场又与京豆同 host 按端点频率限流。⇒ 每天空跑只会刷两条同源失效，故摘掉。脚本未动：`jd_web_signin.py auto` / `jd_farm.py auto` / `jd_web_signin.py cookie`（打印实际取源级别）随时手动复跑。
+> - **`24-byd` 腾势 DENZA 已注释**。结构性缺陷不是运维问题：小程序 `session_id` 寿命约 2 小时且**无离线 refresh 通道**（`mina.checkSession` 只校验不下发；重登必须走微信运行时 `wx.login()`），无人值守的 10:00 总控必然撞上过期 sid（实测 `ret=10020 session_id不合法`，`expired_timestamp` 比跑批时刻早 21.5h）。要恢复必须先自动化「PC 微信开小程序 → Reqable 收割 `mina.decryptCode` → `reqable_hunt.py harvest --file rec.json --apply`」。
+> - **南航只摘掉抽奖、签到保留**：`3-csair` 的 chain 改成 `["csair_signin.py","signin","--no-draw"]`。`csair_signin.py` 新增 `--no-draw`：①跳过 `draw_all()` 检测与消耗；②**并在这种模式下把「小程序 sessionId 已失效」降级成提示并退 0**——因为 foundZone 那步只吃 sid，而它唯一的下游消费方就是抽奖，H5 签到成功时 rc=3 只会每天伪造一条【南航失效】。要抽卡：抓 `/mini/api/login/login` 响应 `refresh` 后跑 `csair_signin.py draw`。
+>
+> **★2026-10-30 猛士汽车移出总控（用户明示）**：`25-mengshi` 已注释。原因不是接口坏，是**凭证从未落地**——`mengshi_config.json` 与 `MENGSHI_COOKIE` 都为空，每天实跑固定输出 `No account loaded` 后退 0，零收益；而它的 cookie/token 只能靠小程序抓包（人工步骤），抓包未自动化前不该挂在无人值守链上。**脚本未动**：`python scripts/mengshi_signin.py auto|status` 仍是手动入口，抓包配好凭证、确认 `actionId=rwqd` 真签到成功后再放回总控。恢复逐字原文见 `scripts/cron_prompt_25-mengshi_removed.txt`（定时任务 prompt 的对应改动同见该文件）。
 
 
 **每日自动覆盖范围**：
@@ -573,8 +626,8 @@ cookie，写回的 WorkBuddy 国际版 cookie 校验 401，而旧那份本来是
 |---|---|---|
 | **可离线续期（有 RT，已接线）** | MiniMax、华为码道、办公小浣熊、阿里云盘、天翼189、有道LobsterAI | lead 1h + 单次轮换守卫 + 终态不重试 + 新值只写自己的 cache |
 | **靠第 0 步浏览器轮换** | 魔搭、Loomy(web)、天翼189 SSON、WorkBuddy国际版 | cookie_sync 每天重取（先验证后落盘、失败回滚） |
-| **靠桌面端自续（每次实读）** | Qoder CN/国际版、千问办公、Loomy桌面、TRAE(旁证) | 用户在客户端里登录即刷新；★Qoder 离线续期要 `machine_id`，本机拿不到 → 不做死代码 |
-| **只能重登/重抓（无 grant）** | 利宝、美团四件套、南航小程序 sessionId、东东农场、小米系、ZCode、TRAE、掘金(依赖 9222 登录态) | 体检里标「无到期值」+ 心跳观察；★别写【失效】除非当天真报错 |
+| **靠桌面端自续（每次实读）** | Qoder CN/国际版、千问办公、Loomy桌面、TRAE | 用户在客户端里登录即刷新；★Qoder 离线续期要 `machine_id`，本机拿不到 → 不做死代码；★TRAE 客户端启动自己 `exchangeTokenByRefreshToken`，脚本只跟读、不代刷（RT 单次轮换且与用户共用） |
+| **只能重登/重抓（无 grant）** | 利宝、美团四件套、南航小程序 sessionId、东东农场、小米系、ZCode、掘金(依赖 9222 登录态) | 体检里标「无到期值」+ 心跳观察；★别写【失效】除非当天真报错 |
 | **结构性半自动** | 南航抽奖（sessionId 绑小程序、寿命数小时） | 每天提醒有几次机会待人工抽 |
 
 ★**不要主动做的三件事**（都是实测换来的）：① 在桌面端在跑时替它刷 refresh_token（会把它踢下线）；
@@ -591,12 +644,13 @@ bdms 滑块的掘金签到（必拦，脚本已改快速失败）。
 | ★`cookie_sync` 报某家 ❌（如「浏览器缺少 SSON（未登录？）」「浏览器缺少 session」）**但该平台当天签到正常** | 无人值守壳拿到的 cookie 是**天然不完整的子集**：会话级必然没有；临时 profile 实测只注入到 90 个（用户真浏览器有 849 个）。这是**覆盖度问题，不是用户没登录** | 脚本已按此把 headless 模式的差异退 rc=0 并打 `[说明]`。汇总照抄说明行，**别报【凭证同步失败】**。要全量同步只能让用户带 `thorium.exe --remote-debugging-port=9222` 开自己的浏览器再跑 |
 | ★同步跑完后某平台**从正常变成 401/失效**（2026-10-18 真实事故：WorkBuddy 国际版旧 cookie 本可用、返回过 `active=false`，被临时壳的 90 个 cookie 覆盖后 401） | 早期 `cookie_sync` 是"先写后判"，坏凭证会顶掉好凭证；且部分平台 `init` 只打「已写入」不验证，成功判据等于没验 | 已修两条：①PLATFORMS 每项带 `cfg`，**init 判失败立即回滚原 config**；②所有平台 `init` 必须真发一次只读校验后才打 `[ok] …校验通过`（`workbuddy_intl_credits.py` 本次补上）。已被清掉的凭证无法找回——把 config 里 cookie 清空即可回到 `[skip] 未配置 退0` 的确定状态，等用户在对应域登录后由第 0 步重新同步 |
 | `keepalive_status.py` 里某平台标「无到期值」 | 服务端**从来不给**到期时间（美团 wm_logintoken、利宝 authorization、小米 serviceToken、南航 sessionId、ZCode JWT 无 exp 等）——不是坏了 | 看「心跳天」列（上次总控成功距今）；>1.5 天标「心跳陈旧」才是真信号。★「无到期值」「未安装」「自动轮换」一律**不写进【XX失效】** |
-| 体检把阿里云盘/MiniMax 标成「临期 0.0 天」 | 报的是**派生短效凭证**（AT 7200s / AT 约 1h），寿命短是设计如此；根凭证其实是 RT 或浏览器 Local Storage | 已按 `root=False` 排除告警。只有"坏了必须用户重登"那一层才参与临期判定（TRAE 7 天 JWT、Qoder 30 天、LobsterAI 30 天、华为 rt_exp_ms、小浣熊 token_exp） |
+| 体检把阿里云盘/MiniMax 标成「临期 0.0 天」 | 报的是**派生短效凭证**（AT 7200s / AT 约 1h），寿命短是设计如此；根凭证其实是 RT 或浏览器 Local Storage | 已按 `root=False` 排除告警。只有"坏了必须用户重登"那一层才参与临期判定（TRAE 14 天 JWT、Qoder 30 天、LobsterAI 30 天、华为 rt_exp_ms、小浣熊 token_exp） |
 | 美团 `mtgsig` 失败/被风控 | 抓包设备版本与脚本不符、Node 未装 | 设 `MT_NODE`；把抓包整条发我适配 |
 | 美团 H5 页"未登录" | wm_logintoken 过期 | 重抓一条 `listActivityCoupon` 发我，H5 脚本与主领券共用同一 token |
 | 美团限时抢总提示"活动太火爆" | 该场次库存=0（秒杀券库存个位数，被别人抢了）或当日已领（subCode 9017） | 属正常，脚本每日新场次自动重试；想抢到需在场次开始（10:00/11:00/17:00）第一时间跑 |
 | 美团"百元券包"没自动领 | 天降掉券每日只有 1 次机会，当天已领过则返回"次数已消耗光"；百元券包主力其实是**跨券墙**（页面可同时挂多个，"周末加码"那档面值最大） | 查 `mt_gundam_state.json` 或跑 `mt_gundam_coupon.py status` 看已领记录 |
 | 美团跨券墙 fetch 返回 `subcode:12 活动太火爆` | 风控：未带 info 接口下发的 `ta.uuid`/`iuuid` cookie | 已修复——脚本用 cookie jar 先 info 收 cookie 再 fetch；若仍失败说明该活动风控更严或该账号被限 |
+| ★美团跨券墙 info/fetch 返回 `HTTP 403`（openresty HTML 页，非业务 JSON）| 2026-10-27 起网关对 `market/promotion.waimai.meituan.com /playcenter/generalcoupon/*` 强制 csec/H5guard 校验，旧裸请求全失效（10-27 起连续 403 实为网关升级，非账号失效）。三层根因（2026-10-31 Reqable 记录 33/91/118/119 对照实证）：① 缺 `yodaReady=h5&csecplatform=4&csecversion=4.3.0` + **GET 的 mtgsig 挂 query**（假 activityViewId 对照：不加签恒 403、加签可进业务层）；② POST 签名时 body 必须已含 `mtFingerPrint`（先注入再签，否则签名与实发 body 不一致）；③ **fetch 风控校验 mtgsig.a3(dfpid) 与 Cookie `WEBDFPID` 一致**——签名器每次随机新生成，须把本次签名 a3 写进 cookie WEBDFPID 才放行（假 tabs 返 `501/99 参数错误`=已过风控进业务） | 已修复于 `mt_gundam_coupon.py`（wall_info 加 h5 签、wall_fetch 两遍签+dfpid 同步 cookie），10-31 实测补跑跨券墙 ✅45 张 ¥596。以后若再 403，先对照当日真实浏览器抓包看网关是否又升校验维度 |
 | 南航营销签到 `S0023 奖品状态不正确` | 2026-10-16 Reqable 抓包实证：`award/getAward` 对**已经是 `received` 的 `mileageAward`** 回这句，即「重复领取」，不是活动结束、也没有损失 | 已修正措辞（旧版写「活动可能已结束」会误导汇总）；核对用 awardList 里该项的 `awardStatus` |
 | ★南航「当前无待消耗的抽奖机会」但小程序里明明能看到机会 | **两个叠加的假阴性**：① `awardList` 回 `S00011 获取用户登录信息失败` 时旧版 `find_lottery_chances` 直接返回空列表，把「鉴权失败」当成「没机会」；② `draw_all` 在入口就缓存 H5 token，而它常在 `signin_all` 之后跑——链路里的 Playwright 重登**已经换掉了 token**，缓存的旧值一路用到 S00011 | 已修（2026-10-16）：`find_lottery_chances` 改返回 `(chances, err)`，非 `0000` 一律报 err 并入口重读 `csair_h5_auth.json` 的新 token 再判失败；`draw` 报 rc=7 明确写「这是鉴权/网关问题，不是没有机会」。判读口径：**看不到机会先分清是查询失败还是真没有** |
 | ★南航抽奖机会「莫名其妙少了一个」 | 旧版 `do_draw` **无论成败都写 state**（`state["draw\|%s"] = code\|txt`），而 `todo` 过滤掉任何有记录的 rewardId → 一次阿里云 WAF 拦截（`WAF\|被阿里云滑块拦截`）就把一个从未真正消耗的机会永久标成「已处理」 | 已修：只有服务端给出**终局结果**（中奖 / `W11000` 已消耗）才记账，`WAF/W00000/W403` 等未消耗情形下轮自动重试。历史脏数据已清（`csair_state.json.bak-20261016` 留档） |
@@ -609,6 +663,8 @@ bdms 滑块的掘金签到（必拦，脚本已改快速失败）。
 | 美团营销页红包总跳过 | 未抓包营销页 | 抓一次 `realTimeMarketingSendCoupon` 发我 |
 | ★美团分销会场 grant 行报「已发放 17 张 ¥25000」，面额大得离谱 | `mt_union_coupon.py` 会场分支直接 sum 响应里的 `couponValue`（**单位是分**）后原样打印，而同一脚本的分销中心跨券墙分支是**元**口径 → 汇总里两行不能直接相加 | 判读口径：**会场行 ÷100**（¥25000 = ¥250.0），跨券墙行按原值；已在 2026-10-18 汇总中按此换算。要改就把 `count_granted` 的 value 统一 ÷100 |
 | ★美团福利社报「底部 tab 已无福利社(fls) gundam 入口…入口已下线」 | 2026-10-12~10-15 连续四天如此，当时写成"服务端改版"；**2026-10-18 实测同一账号同一脚本自动发现 `gid=4TtwZI`、跨券墙 8 grabs + 天降 1 falls 正常入账** → 该 tab 下发是**灰度/周期性**的，不是永久下线 | 别把"入口已下线"当终局结论写进汇总；按当日实跑结果判，抓到 gid 就正常计入，抓不到就写"本次入口未下发，跳过" |
+| ★美团**跨券墙**两条链（福利社 `mt_gundam_coupon.py` 步骤 3 之后、分销中心 `mt_union_coupon.py` 步骤 3）同报 `HTTP Error 403: Forbidden`，且 gundam 那条是**异常退出 rc=1（traceback）** | ★2026-10-28 实测定论：403 响应体是 `openresty` 的**边缘网关 HTML 页**（不是 JSON 业务码）→ 请求在服务端网关层就被拦掉，根本没进业务逻辑。同账号同 token 下，红包墙(`mt_api_coupon` +16 张¥192)、分销会场(`distributionVenue` +11 张)、答题(WebSocket) 三条全部正常入账 ⇒ **不是登录失效，不是 `wm_logintoken` 掉了**，是 `market. 域 /playcenter/generalcoupon/info` 这条 GET 现在要求 `wall_info` 没带的东西（mtgsig/H5guard 签名或完整浏览器头集） | 判读口径：汇总写「美团跨券墙本次 403（网关拦截），其余 N 条正常」，**不要标【美团券包失效】**（主力三条都通）。修的方向：给 `wall_info` 也走 Node 沙箱 `h5_sign` 加 mtgsig + 补 Referer/Origin，或改走 mp 域 csecplatform 签名；`wall_claim` 外层应 catch 成软失败、别让 gundam 整步 traceback 退出 |
+| ★用户明确说「某某已经重新登录了」，但 `cookie_sync` 仍报「浏览器缺少 xxx_session（未登录？）」——**这是最容易被误判成用户没登录的一条** | ★2026-10-28 Loomy 实测：登录**确实已落库**（`…/User Data/Default/Network/Cookies` 的 mtime 就在登录那一分钟，且**没有 `-wal` 滞后**），但 Thorium 运行中把该库**独占锁死**：CreateFileW 七种共享标志（none/read/write/delete/r+w/r+d/all）× 三种 flag（含 `FILE_FLAG_BACKUP_SEMANTICS`）**全部 err=32**，`mklink /H` 硬链接能建但 sqlite 仍 `unable to open database file`。于是 `browser_cookies` 静默退到 **TEMP 旧快照**（本次是 10:02 = 登录前的那份），旧快照里当然没有新 cookie → 报「未登录」是**取源被打穿**，不是用户骗人 | 鉴别三步：①查 `Network/Cookies` 的 **mtime** 是否≈登录时刻（是→登录已落库，别怀疑用户）；②看 `browser_cookies` 打印有没有「TEMP 缓存命中 …（日期 时间）」——命中旧快照就是假「未登录」；③取新 cookie 只有两条真路：**带 `--remote-debugging-port=9222` 开浏览器走 CDP 实时读**（首选，且以后无人值守也能 `reused` 全量同步），或**把浏览器彻底退干净**再磁盘直读（进程数归零为准，别只看窗口关了）。★注意 Loomy/魔搭/天翼189 是**持久化** cookie，重启浏览器不丢登录态，A 方案安全；小浣熊 `raccoon_token` 是**会话级**，重启后即使 9222 也照样缺，属结构性、别当失效 |
 | ★美团惠省红包墙「今天的活动没领」 | 两种可能：① **其实已领完**（跑 `mt_api_coupon.py probe` 看「可领 N / 已在卡包 M」，可领=0 即领完，曾在 00:58 手动跑过并标记过当日）；② 旧版**日级幂等**把当天后出现的新批次挡掉了（红包墙当天会刷新，实测墙总额 ¥222→¥412） | 已修复为 rightCode 级幂等（2026-10-12），只领新出现的券；仍异常就跑 `probe` 对比「可领数」与 `mt_claim_state.json` 里当日 `granted_rc` 数量 |
 | 美团惠省红包墙 probe 显示「可领 0 / 已在卡包 38」但记得没领过 | 之前某次运行（含手动测试）已领，`couponViewId` 有值即代表在卡包 | 正常；想核对去美团小程序「我的→红包/卡包」按日期看 |
 | 美团 `querySharePopWindow` 返回 `data:null` | 无分享弹窗、无待领分享奖励 | 正常空操作；哪天真返回非 null data 再补分享任务实现 |
@@ -637,6 +693,7 @@ bdms 滑块的掘金签到（必拦，脚本已改快速失败）。
 | 华为码道 claim/confirm `HTTP 400 HDN.1000 "channel : unknown exception"` | 服务端按 DTO 逐字段校验：`claim` 的 body **要** `channel`，`confirm` 的 body **不能带** `channel`；反过来给 POST 再挂 `?channel=` query 也会 400 | 已按客户端两处实现校准：GET 只放 query、POST 只放 body 且仅 claim 带 channel |
 | 华为码道签名报 `401 APIG.0301 header x-sdk-date not signed` | `X-Sdk-Date` 没进参与签名的 header 集合（signer.js 是先写 header 再算 SignedHeaders） | 已修复；另注意 canonicalURI 末尾必须补 `/` |
 | 华为码道「今日不可领」`claimable=false` 且 status 非已领 | 权益刷新周期**不是自然日**（实测 confirm 显示 claimedAt=09-27 后长期不可领） | 业务态不是失效，脚本已返回 0 并标注【今日不可领】，别再当日误报异常；`probe` 可看服务端 40001 原文 |
+| ★华为码道**当日已成功入账后再跑一次**报 `[失败] 未定位到每日签到活动（campaign_id=1）`、rc=3 | 2026-10-28 实测：首跑 `claim OK → confirm OK`（+100 通用积分）退 0；同日二次复跑时 `delivery` 返回的活动列表里已经没有 ELIGIBLE 的每日签到项（领完就被摘出列表），脚本按「找不到活动」判失败而不是按「今日已领」判幂等 | **这是重复执行的假失效，不是登录态问题**。判读：只要当日早先那轮已打出「claim OK → confirm OK」，本轮就按「今日已领」记，别标【华为码道失效】、更别再提醒用户重开 CodeArts Agent。真要收敛就把这条分支改成 `已领 → 打积分桶余额 + 退 0` |
 | 京东明明重新登录了，仍持续 `login_expired`（曾连挡两天） | ① `manual=true` 配置一旦写入就**永久短路**整条提取链（TEMP 缓存只在直读成功时刷新，而直读被短路永不执行）；② ~~Thorium 在跑时读不出库~~ **此因已于 2026-10-17/18 两次证伪**：脚本走的 `CreateFileW` **只读**直开 + 自解析 SQLite 在浏览器运行中照样成功（2026-10-18 实测提出 42 个 cookie、`flash` 已是重登后的新值）。真正会失败的只有"整库复制"类手段（esentutl/robocopy/copy/open）；③ 旧版 esentutl 静默失败还等满 120s | 已修（2026-10-15）：`manual` 加 **6h TTL**；取源按新鲜度排序；esentutl 超时降到 20s 并打印原文；用陈旧快照时 `login_expired` 自带"N 分钟前的磁盘快照"提示。**判读顺序**：先跑 `jd_web_signin.py cookie` 看它报的哪一级源＋条数有无变化 → 直读成功且是新鲜值仍 `code=3`，才是**会话被服务端整体作废**（见上条鉴别诊断），此时唯一解法是真重登；只有源是 TEMP 陈旧快照时才需要关浏览器或加 9222。**别一上来就叫用户关浏览器** |
 
 > 提示：token 都有有效期，长期不用需重新抓包。**不要在对话里粘贴明文 Cookie 口令**——若抓包工具能复制脱敏请求最理想；敏感值请本地处理。拿不准时先把抓包请求发我看看再跑，避免被风控。

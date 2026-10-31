@@ -2,7 +2,7 @@
 
 多平台每日签到 / 领券 / 积分自动化工具集。遵循通用 **Agent Skill** 规范（`SKILL.md` + frontmatter 元数据 + `scripts/` 目录），可安装进任何支持该约定的 AI 编程/办公助手，也可完全脱离 AI 用纯 Python 独立运行。纯接口实现（非 UI 点击），自带幂等（当天重复执行自动跳过）与状态文件，适合挂 cron / 定时任务。
 
-**本仓库收录 18 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
+**本仓库收录 20 个平台（同一家企业的多个产品已合并为组，组内脚本即总控链内执行顺序）：**
 
 | 平台 | 脚本 | 每日收益 |
 |---|---|---|
@@ -24,6 +24,8 @@
 | ZCode（智谱） | `scripts/zcode_credits.py` | Start Plan 每日额度（zcode.z.ai）；★查可领额度前**必须先补 event/report 激活**，否则 preview 空列表会稳定误报『今日已领』；今日已领判据=可领 plan 数为 0；★code 1003=已领取（属成功）、3007=captcha 无效；★领取端点强制阿里云验证码，无 captcha 时提示人工领取（不算失败）；凭据需抓包 zcode_jwt + device_mid |
 | wb_balance.py | `scripts/wb_balance.py` |  |
 | 滴滴出行 | `scripts/didi_coupon.py` | 打车/花小猪/加油/货运 4 线自动领券（union.didi.cn reward/receive，按 dsi 幂等）+ 福利中心每日签到领福利金、气泡逐个点、瓜瓜乐报名/领奖（ut.xiaojukeji.com）；★凭证是 **H5 登录票据 token**（`sync` 从本机浏览器登录态自动取：CDP 读 localStorage 为主 + leveldb 兜底，需 Thorium 9222；也可 F12 手取，约 7-30 天有效）。★实证坑：localStorage 值自带引号必须剥、票据键 role 后缀随活动变（实测 role_30004）须前缀匹配；ut/webx 带 wsgsig 签名（md5 盐 + 七元组 + 4 字节掩码 XOR + base64）。失效判据 ut errno=6001 / union errno=1000010005（≥2 线才判失效）；重复签到 errno=40009 算成功 |
+| 腾势 DENZA | `scripts/byd_signin.py` | 汽车小程序签到 + 任务中心自动领积分（反编译包逆向）；两套场景：unifie 网关(common-mina-gateway.bydauto.com/denza) 走签到家族 signIn/getSignCalendar/getCardList，normal 场景(service20.denzacloud.com/?s=ForInterfaceMina.forwardInformationFlow) 走任务系统 task/user/tasks + receiveAward；AES-128-CBC-PKCS7 直接密钥(非口令派生)，请求头 Checksum=sha256(appSecret+nonce+curtime)；★凭证=小程序 session_id（真机 Reqable 抓 /?service=mina.decryptCode 响应取），非浏览器 cookie、不依赖 0-sync；★sid 寿命仅约 2h、无离线续期通道，保活=每日跑前 1 小时内 PC 微信打开小程序让 reqable_hunt.py harvest 收割；★任务服务对 session 校验更严，同一 sid 能让签到过不代表任务也能过(ret=401 即需重抓)；未配置账号时 [skip] 退 0 |
+| mengshi_signin.py | `scripts/mengshi_signin.py` |  |
 
 ## 安装
 
@@ -131,6 +133,9 @@ git clone <本仓库地址> ~/.claude/skills/SignIn-Skill    # 以 Claude Code �
    python scripts/didi_coupon.py auto                   # 滴滴出行
    python scripts/didi_coupon.py sync
    python scripts/didi_coupon.py status
+   python scripts/byd_signin.py auto                    # 腾势 DENZA
+   python scripts/byd_signin.py status
+   python scripts/byd_signin.py init --session <session_id> [--acct 名字]
    ```
 5. 定时：挂 cron / 任务计划程序 / 任意调度器每日一次即可；当天已完成的自动跳过，重跑可删除对应 `*_state.json`。
 

@@ -46,6 +46,7 @@ csair_signin.py — 中国南方航空小程序「发现新境」每日签到
   python csair_signin.py doctor                                 # 凭证健康检查(sessionId / signToken 逐一探活)
   python csair_signin.py status
   python csair_signin.py signin                                 # 执行签到(幂等, 含抽奖机会自动检测)
+  python csair_signin.py signin --no-draw                       # ★只签到收奖、跳过抽奖(总控用这个)
   python csair_signin.py draw                                   # 手动抽一次(需新鲜 sessionId)
 
 === 抽奖(2026-10-11 逆向+抓包定案) ===
@@ -615,7 +616,19 @@ def signin_all():
     if act.get("activity_name"):
         print_activity(act)
     # 签到后顺带检测抽奖机会(getAward 领取 lotteryAward 后即激活)
-    draw_all(token=token)
+    # ★2026-10-28 起总控传 --no-draw：抽奖消耗绑小程序 sessionId(寿命数小时、无离线 refresh
+    #   通道)，无人值守每天必刷「有 N 个抽奖机会待抽但 sessionId 不可用」，故默认跳过。
+    if "--no-draw" in sys.argv:
+        print("[抽奖] 已按 --no-draw 跳过检测与消耗（手动抽：python csair_signin.py draw）")
+        # ★小程序 foundZone 那一步只吃 sessionId(寿命数小时、无离线续期)，而它唯一的下游消费
+        #   方就是抽奖。不抽卡时它已经不影响任何入账，H5 签到成功就应退 0，否则总控每天挂着
+        #   rc=3 +「sessionId 已失效」被误判成【南航失效】。
+        if code == 3 and r["ok"]:
+            print("[说明] 小程序 sessionId 已失效，但抽奖已按 --no-draw 移出总控，"
+                  "签到走 H5 token 已成功 → 按正常退 0（要抽卡才需要重抓 sessionId）")
+            return 0
+    else:
+        draw_all(token=token)
     return code
 
 
