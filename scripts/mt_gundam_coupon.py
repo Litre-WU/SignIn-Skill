@@ -479,7 +479,12 @@ def run():
 
     # 2) 跨券墙（百元券包主力）
     for w in walls:
-        okr, msg, got = wall_claim(cfg, cfg["wm_logintoken"], w["activityViewId"], w["instanceId"])
+        # ★2026-10-31：单墙异常(网关/风控变迁)不得中断整个 gundam 流程——
+        # 10-27 网关升级后 info 抛 RuntimeError 曾把限时抢/天降一起带崩(日志无 gundam 行=崩了)
+        try:
+            okr, msg, got = wall_claim(cfg, cfg["wm_logintoken"], w["activityViewId"], w["instanceId"])
+        except Exception as e:
+            okr, msg, got = False, "异常: %s" % e, []
         print("      [跨券墙 %s] %s — %s" % (w["activityViewId"][:12], "✅" if okr else "❌", msg))
         results.append({"type": "跨券墙", "activity": w["activityViewId"], "ok": okr, "msg": msg})
         for name, val in got:
