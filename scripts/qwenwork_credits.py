@@ -108,6 +108,14 @@ def load_credential():
         # 未过期（留 1h 缓冲）就用实时的
         if exp - time.time() > 3600:
             live["_source"] = "client"
+            # ★2026-10-31 轮换权威同步：客户端自己续期后 rt 也在轮换，把它顺手写回
+            # config，防止脚本手里攥着已被客户端消费掉的旧 rt 去 refresh 必然失败。
+            if live.get("refreshToken"):
+                try:
+                    save_cfg(live["token"], live["refreshToken"],
+                             {"user": (live.get("user") or {}).get("name")})
+                except Exception:
+                    pass
             return live
     cfg = None
     try:
@@ -116,6 +124,22 @@ def load_credential():
     except Exception:
         cfg = None
     if cfg and cfg.get("token"):
+        # ★2026-10-31 自愈：config token 已过期但有 refreshToken → 先离线续期再用。
+        # 实测（10-31）：auth.v1.dat 的 refreshTokenExpiresAt 元数据**滞后不可信**
+        # （显示 10-23 已过期，服务端实际接受续期并新发 7 天 token），所以直接试一次；
+        # refresh 单次轮换，成功即写回 config（新 token+新 rt）。
+        if _jwt_exp(cfg["token"]) - time.time() <= 3600 and cfg.get("refreshToken"):
+            st, j = call("POST", "/api/v1/deviceToken/refresh", cfg["token"],
+                         body={"refresh_token": cfg["refreshToken"], "target": "c"},
+                         label="refresh(自愈)")
+            tok, rt = (j or {}).get("device_token"), (j or {}).get("refresh_token")
+            if st == 200 and tok and rt:
+                save_cfg(tok, rt, {"user": cfg.get("user")})
+                cfg = {"token": tok, "refreshToken": rt, "user": cfg.get("user")}
+                cfg["_source"] = "config-refreshed"
+                return cfg
+            print("[续期] 自愈失败 HTTP %s %s（回退旧 token，大概率 401→需重登桌面端）" % (
+                st, str(j)[:120]))
         cfg["_source"] = "config"
         return cfg
     # 实时的虽然临期，也总比没有强
@@ -250,9 +274,13 @@ def _core(try_claim=True):
         return 2
     token = c["token"]
     exp = _jwt_exp(token)
+    # ★2026-10-31 兼容：config 的 user 历史上被存成字符串(cmd_refresh 老写法)，
+    # 客户端实时的 user 是 dict。统一归一，不再 AttributeError。
+    u = c.get("user")
+    u = u if isinstance(u, dict) else {"name": u or ""}
     print("[用户] %s | %s | 凭证来源=%s | token 到期=%s" % (
-        (c.get("user") or {}).get("name") or "-",
-        (c.get("user") or {}).get("tier") or "-",
+        u.get("name") or "-",
+        u.get("tier") or "-",
         c.get("_source"),
         datetime.fromtimestamp(exp, timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M")
         if exp else "?"))
