@@ -99,60 +99,94 @@ def _decrypt_auth_v2(ud):
         return None
 
 
-def load_credential():
-    """★优先实时读桌面端凭证（它自己续期，不冲突）；config 兜底。"""
+def _user_dict(c):
+    """归一 user：客户端实时是 dict，config 历史(老 cmd_refresh 写法)可能是字符串。"""
+    u = (c or {}).get("user")
+    return u if isinstance(u, dict) else {"name": u or ""}
+
+
+def load_credential(force_refresh=False):
+    """★凭证装载 + 自动续期（2026-10-31 加固版）。
+
+    force_refresh=True: 跳过 ①② 新鲜判定，直接进入 ③ rt 续期
+    （_core 遇到「本地看似新鲜但服务端 401」时的强刷通道）。
+
+    顺序: ① 客户端 auth-v2.dat 新鲜(>1h 缓冲) → 直接用，并把 rt 写回 config(轮换权威)
+          ② config 新鲜 → 直接用
+          ③ 两者皆临期/过期 → 依次用 rt 候选离线续期(config rt → live rt，去重)，
+             成功写回 config。★修复点：旧版续期块只在「config 有 token」分支内执行，
+             「客户端过期 + config 缺失/无 rt」场景（桌面端一周没开 + config 被清）
+             会拿着一堆可用 refreshToken 却从不续期，直接返回过期 token 被误判失效。
+          ④ 全部续期失败 → 返回手头最新 token 并明确提示（_core 遇 401 还会强刷重试）
+
+    实测(10-31): refresh 端点只校验 refresh_token，不强验 base Authorization 是否过期；
+    refreshTokenExpiresAt 元数据滞后不可信 → 一律直接试刷；失败的 rt 不被消费可安全重试。
+    """
     ud = _user_data_dir()
     live = _decrypt_auth_v2(ud) if ud else None
-    if live and live.get("token"):
-        exp = _jwt_exp(live["token"])
-        # 未过期（留 1h 缓冲）就用实时的
-        if exp - time.time() > 3600:
-            live["_source"] = "client"
-            # ★2026-10-31 轮换权威同步：客户端自己续期后 rt 也在轮换，把它顺手写回
-            # config，防止脚本手里攥着已被客户端消费掉的旧 rt 去 refresh 必然失败。
-            if live.get("refreshToken"):
-                try:
-                    save_cfg(live["token"], live["refreshToken"],
-                             {"user": (live.get("user") or {}).get("name")})
-                except Exception:
-                    pass
-            return live
-    cfg = None
     try:
         with open(CFG_PATH, encoding="utf-8") as f:
             cfg = json.load(f)
     except Exception:
         cfg = None
-    if cfg and cfg.get("token"):
-        # ★2026-10-31 自愈：config token 已过期但有 refreshToken → 先离线续期再用。
-        # 实测（10-31）：auth.v1.dat 的 refreshTokenExpiresAt 元数据**滞后不可信**
-        # （显示 10-23 已过期，服务端实际接受续期并新发 7 天 token），所以直接试一次；
-        # refresh 单次轮换，成功即写回 config（新 token+新 rt）。
-        # rt 候选顺序：config 的 rt（脚本上次写回，最新血缘）→ 客户端 live 的 rt
-        # （客户端若比脚本更近续过期，它手里才是权威）。失败的 rt 不被消费，可安全重试。
-        if _jwt_exp(cfg["token"]) - time.time() <= 3600:
-            rt_cands = []
-            if cfg.get("refreshToken"):
-                rt_cands.append((cfg["token"], cfg["refreshToken"], "config"))
-            if live and live.get("refreshToken") and \
-                    live["refreshToken"] != cfg.get("refreshToken"):
-                rt_cands.append((live["token"], live["refreshToken"], "client"))
-            for base_tok, rt, src in rt_cands:
-                st, j = call("POST", "/api/v1/deviceToken/refresh", base_tok,
-                             body={"refresh_token": rt, "target": "c"},
-                             label="refresh(自愈:%s)" % src)
-                tok = (j or {}).get("device_token")
-                nrt = (j or {}).get("refresh_token")
-                if st == 200 and tok and nrt:
-                    save_cfg(tok, nrt, {"user": cfg.get("user")})
-                    cfg = {"token": tok, "refreshToken": nrt, "user": cfg.get("user")}
-                    cfg["_source"] = "config-refreshed:" + src
-                    return cfg
-                print("[续期] 自愈(%s) HTTP %s %s" % (src, st, str(j)[:120]))
-            print("[续期] 全部 rt 候选续期失败 — 需打开桌面端重新登录一次（脚本会随后同步新 rt）")
+
+    def _fresh(t):
+        return bool(t) and _jwt_exp(t) - time.time() > 3600
+
+    # ① 客户端新鲜 → 权威（它自己会续期），把 rt 写回 config——但**仅在 live 血缘
+    #    比 config 更新时**（exp 更大）。防反向覆盖：若脚本先 ③ 续期（config 手里是
+    #    新活 rt，客户端那份旧 rt 已被消费成死签），客户端随后回写 auth-v2.dat 时，
+    #    无条件写回会用死 rt 顶掉活 rt，导致下次到期自动续期全失败被误判失效。
+    if not force_refresh and live and _fresh(live.get("token")):
+        live["_source"] = "client"
+        if live.get("refreshToken"):
+            cfg_exp = _jwt_exp((cfg or {}).get("token") or "")
+            if _jwt_exp(live["token"]) >= cfg_exp:
+                try:
+                    save_cfg(live["token"], live["refreshToken"],
+                             {"user": _user_dict(live).get("name")})
+                except Exception:
+                    pass
+        return live
+
+    # ② config 新鲜 → 直接用
+    if cfg and _fresh(cfg.get("token")):
         cfg["_source"] = "config"
         return cfg
-    # 实时的虽然临期，也总比没有强
+
+    # ③ 都临期/过期 → 用 rt 续期（不论 token 来自 config 还是 live，只要手里有任何 rt）
+    # force 模式下跳过"本地判新鲜"过滤——本地 exp 与服务端判决不一致（401 场景）时照样强刷。
+    rt_cands = []
+    if cfg and cfg.get("token") and cfg.get("refreshToken") and \
+            (force_refresh or not _fresh(cfg["token"])):
+        rt_cands.append((cfg["token"], cfg["refreshToken"], "config"))
+    if live and live.get("refreshToken") and \
+            (force_refresh or not _fresh(live.get("token"))) and \
+            live["refreshToken"] not in [x[1] for x in rt_cands]:
+        rt_cands.append((live.get("token") or "", live["refreshToken"], "client"))
+    user0 = _user_dict(cfg).get("name") if cfg else _user_dict(live).get("name")
+    for base_tok, rt, src in rt_cands:
+        st, j = call("POST", "/api/v1/deviceToken/refresh", base_tok,
+                     body={"refresh_token": rt, "target": "c"},
+                     label="refresh(自动续期:%s)" % src)
+        tok = (j or {}).get("device_token")
+        nrt = (j or {}).get("refresh_token")
+        if st == 200 and tok and nrt:
+            save_cfg(tok, nrt, {"user": user0})
+            print("[续期] 自动续期(%s)成功 → 新 token 剩余约 %d 天" %
+                  (src, max(0, _jwt_exp(tok) - int(time.time())) // 86400))
+            out = {"token": tok, "refreshToken": nrt, "user": user0,
+                   "_source": "auto-renewed:" + src}
+            return out
+        print("[续期] 自动续期(%s) HTTP %s %s" % (src, st, str(j)[:120]))
+
+    # ④ 兜底：返回手头过期凭证（_core 的 401 强刷重试是最后防线），并明确提示
+    if rt_cands:
+        print("[续期] 全部 rt 候选续期失败 — 需打开桌面端重新登录一次"
+              "（脚本会随后同步新 rt）")
+    if cfg and cfg.get("token"):
+        cfg["_source"] = "config-stale"
+        return cfg
     if live and live.get("token"):
         live["_source"] = "client-expiring"
         return live
@@ -264,11 +298,11 @@ def cmd_init():
         print("[失败] 未找到凭证 — 需安装并登录「千问办公」桌面端（%s）" % _user_data_dir())
         return 2
     save_cfg(c["token"], c.get("refreshToken", ""),
-             {"user": (c.get("user") or {}).get("name"),
-              "tier": (c.get("user") or {}).get("tier")})
+             {"user": _user_dict(c).get("name"),
+              "tier": _user_dict(c).get("tier")})
     st, d = get_wallets(c["token"])
     print("[OK] 凭证来源=%s 用户=%s 版本=%s" % (c.get("_source"),
-          (c.get("user") or {}).get("name"), (c.get("user") or {}).get("tier")))
+          _user_dict(c).get("name"), _user_dict(c).get("tier")))
     if d is None:
         print("[警告] 钱包读取 HTTP %s" % st)
     else:
@@ -286,8 +320,7 @@ def _core(try_claim=True):
     exp = _jwt_exp(token)
     # ★2026-10-31 兼容：config 的 user 历史上被存成字符串(cmd_refresh 老写法)，
     # 客户端实时的 user 是 dict。统一归一，不再 AttributeError。
-    u = c.get("user")
-    u = u if isinstance(u, dict) else {"name": u or ""}
+    u = _user_dict(c)
     print("[用户] %s | %s | 凭证来源=%s | token 到期=%s" % (
         u.get("name") or "-",
         u.get("tier") or "-",
@@ -321,6 +354,15 @@ def _core(try_claim=True):
             print("[签到] HTTP %s %s" % (st, str(j)[:150]))
 
     st, d = get_wallets(token)
+    if d is None and st in (401, 403):
+        # ★本地 exp 判新鲜但服务端已判死（提前轮换/撤销）→ 强制走一次自动续期重试。
+        # 旧 load_credential 只在"本地判定过期"时才续期，这种时钟不一致场景会直接误红。
+        print("[钱包] HTTP %s — 服务端判 token 无效，强制执行自动续期重试…" % st)
+        c2 = load_credential(force_refresh=True)
+        if c2 and c2.get("token") != token:
+            token = c2["token"]
+            print("[用户] 续期后凭证来源=%s" % c2.get("_source"))
+            st, d = get_wallets(token)
     if d is None:
         print("[失败] 钱包 HTTP %s —【千问办公失效】" % st)
         return 3
@@ -360,7 +402,7 @@ def cmd_refresh():
     if not tok or not rt:
         print("[失败] 响应缺少 device_token/refresh_token: %s" % str(j)[:200])
         return 3
-    save_cfg(tok, rt, {"user": (c.get("user") or {}).get("name")})
+    save_cfg(tok, rt, {"user": _user_dict(c).get("name")})
     print("[OK] 续期成功 → 到期 %s" % datetime.fromtimestamp(
         _jwt_exp(tok), timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M"))
     print("[注意] refresh_token 已轮换，桌面端内存中的旧 token 仍可用到自然过期")
