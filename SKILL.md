@@ -292,6 +292,7 @@ POST https://wxapi.csair.com/mini/api/login/isLogin?appid=<小程序appid>&wxcha
 
 - ★凭证机制：`auth-v2.dat` 是 Chromium **v10 加密信封**（`{"schemaVersion":2,"token":"<JWT>","refreshToken":"ory_rt_..."}`），解密链与浏览器 cookie 完全一致 —— `Local State` 的 `os_crypt.encrypted_key` 去 `DPAPI` 5B 头 → `CryptUnprotectData` → 32B AES key → `AESGCM(nonce=ev[3:15]).decrypt(ev[15:])`
 - ★**优先实时读客户端文件**（桌面端自己会续期），`qwenwork_config.json` 只作兜底 → **永不与客户端抢 refresh_token 轮换、不踢下线**
+- ★**过期自愈（2026-10-31 改造）**：此前 config token 过期只会报【千问办公失效】rc=3、不会自己续期。现在 `load_credential` 在 token 过期时自动用 refreshToken `POST /api/v1/deviceToken/refresh` 离线续期（候选顺序=config rt→客户端 live rt，失败的 rt 不被消费可安全重试），成功即写回 config；并且**客户端新鲜时顺手把其 rt 同步进 config**（客户端才是轮换权威，防脚本攥着已被消费的旧 rt 必刷失败）。★实测教训：`auth-v1.dat` 载荷里的 `refreshTokenExpiresAt` **元数据滞后不可信**（显示 10-23 已过期，服务端实际接受续期并新发 7 天 token）→ 一律直接试刷，勿拿元数据自断。100 积分本体仍=桌面端登录自动发放，脚本只能续凭证不能代登
 - 接口：BASE=`https://gateway.qwenwork.cn`；`GET /api/v1/adapter/user/wallets`（日包/月包/长期余额）、`GET /api/v1/adapter/user/account-context?include=user,plan,quota`、`POST /api/v1/deviceToken/refresh` `{refresh_token,target:"c"}`
 - ★实测结论：免费版每日 100 积分是**服务端自动发放**（当日有效，`valid_to`=次日 00:00），桌面端无手动领取动作；前端 bundle 里的 `/sash/api/v1/me/daily-check-in/{status,claim}` 在**生产网关未路由（404）**，脚本探测到 404 自动跳过、走钱包核对
 - 断线症状：`auth-v2.dat` 缺失或 token 过期 → 提示重新安装/登录桌面端

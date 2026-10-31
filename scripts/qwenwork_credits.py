@@ -128,18 +128,28 @@ def load_credential():
         # 实测（10-31）：auth.v1.dat 的 refreshTokenExpiresAt 元数据**滞后不可信**
         # （显示 10-23 已过期，服务端实际接受续期并新发 7 天 token），所以直接试一次；
         # refresh 单次轮换，成功即写回 config（新 token+新 rt）。
-        if _jwt_exp(cfg["token"]) - time.time() <= 3600 and cfg.get("refreshToken"):
-            st, j = call("POST", "/api/v1/deviceToken/refresh", cfg["token"],
-                         body={"refresh_token": cfg["refreshToken"], "target": "c"},
-                         label="refresh(自愈)")
-            tok, rt = (j or {}).get("device_token"), (j or {}).get("refresh_token")
-            if st == 200 and tok and rt:
-                save_cfg(tok, rt, {"user": cfg.get("user")})
-                cfg = {"token": tok, "refreshToken": rt, "user": cfg.get("user")}
-                cfg["_source"] = "config-refreshed"
-                return cfg
-            print("[续期] 自愈失败 HTTP %s %s（回退旧 token，大概率 401→需重登桌面端）" % (
-                st, str(j)[:120]))
+        # rt 候选顺序：config 的 rt（脚本上次写回，最新血缘）→ 客户端 live 的 rt
+        # （客户端若比脚本更近续过期，它手里才是权威）。失败的 rt 不被消费，可安全重试。
+        if _jwt_exp(cfg["token"]) - time.time() <= 3600:
+            rt_cands = []
+            if cfg.get("refreshToken"):
+                rt_cands.append((cfg["token"], cfg["refreshToken"], "config"))
+            if live and live.get("refreshToken") and \
+                    live["refreshToken"] != cfg.get("refreshToken"):
+                rt_cands.append((live["token"], live["refreshToken"], "client"))
+            for base_tok, rt, src in rt_cands:
+                st, j = call("POST", "/api/v1/deviceToken/refresh", base_tok,
+                             body={"refresh_token": rt, "target": "c"},
+                             label="refresh(自愈:%s)" % src)
+                tok = (j or {}).get("device_token")
+                nrt = (j or {}).get("refresh_token")
+                if st == 200 and tok and nrt:
+                    save_cfg(tok, nrt, {"user": cfg.get("user")})
+                    cfg = {"token": tok, "refreshToken": nrt, "user": cfg.get("user")}
+                    cfg["_source"] = "config-refreshed:" + src
+                    return cfg
+                print("[续期] 自愈(%s) HTTP %s %s" % (src, st, str(j)[:120]))
+            print("[续期] 全部 rt 候选续期失败 — 需打开桌面端重新登录一次（脚本会随后同步新 rt）")
         cfg["_source"] = "config"
         return cfg
     # 实时的虽然临期，也总比没有强
